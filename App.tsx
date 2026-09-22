@@ -11,6 +11,8 @@ import {
 import { CardBar } from './src/components/CardBar';
 import { GameBoard } from './src/components/GameBoard';
 import {
+  AiDifficulty,
+  createGameConfig,
   createInitialState,
   DEFAULT_CONFIG,
   formatMana,
@@ -39,7 +41,9 @@ function formatClock(ms: number): string {
 }
 
 export default function App() {
-  const [state, setState] = useState<GameState>(() => createInitialState());
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('normal');
+  const config = useMemo(() => createGameConfig(difficulty), [difficulty]);
+  const [state, setState] = useState<GameState>(() => createInitialState(1337, createGameConfig('normal')));
   const [selectedCardId, setSelectedCardId] = useState(() => createInitialState().players.player.cards.hand[0]);
   const [message, setMessage] = useState('Select one of the 4 cards in your hand, then deploy it on a blue cell.');
   const [paused, setPaused] = useState(false);
@@ -47,10 +51,10 @@ export default function App() {
   useEffect(() => {
     if (paused || state.winner) return undefined;
     const handle = setInterval(() => {
-      setState((current) => tickGame(current, TICK_MS));
+      setState((current) => tickGame(current, TICK_MS, config));
     }, TICK_MS);
     return () => clearInterval(handle);
-  }, [paused, state.winner]);
+  }, [paused, state.winner, config]);
 
   useEffect(() => {
     if (!state.players.player.cards.hand.includes(selectedCardId)) {
@@ -59,7 +63,7 @@ export default function App() {
   }, [state.players.player.cards.hand, selectedCardId]);
 
   const selected = UNIT_BY_ID[selectedCardId];
-  const remaining = getMatchRemainingMs(state);
+  const remaining = getMatchRemainingMs(state, config);
   const phaseLabel = state.phase === 'overtime' ? 'OVERTIME · 2× MANA' : state.phase === 'finished' ? 'FINISHED' : 'REGULATION';
   const recentEvents = useMemo(() => [...state.events].reverse().slice(0, 5), [state.events]);
 
@@ -73,12 +77,18 @@ export default function App() {
     setMessage(`${selected.name} deployed. Next card drawn automatically.`);
   };
 
-  const reset = () => {
-    const fresh = createInitialState(Date.now() | 0);
+  const reset = (level: AiDifficulty = difficulty) => {
+    const nextConfig = createGameConfig(level);
+    const fresh = createInitialState(Date.now() | 0, nextConfig);
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
     setPaused(false);
-    setMessage('New match. Control territory, pressure lanes and destroy the enemy Core.');
+    setMessage(`New ${level} match. Control territory, pressure lanes and destroy the enemy Core.`);
+  };
+
+  const changeDifficulty = (level: AiDifficulty) => {
+    setDifficulty(level);
+    reset(level);
   };
 
   const resultTitle =
@@ -92,7 +102,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.eyebrow}>MVP 1.0</Text>
+            <Text style={styles.eyebrow}>SINGLE PLAYER · MVP 1.1</Text>
             <Text style={styles.title}>Dominion Rush</Text>
             <Text style={styles.subtitle}>Real-time grid tactics · 5 × 6 battlefield</Text>
           </View>
@@ -101,9 +111,27 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.difficultyRow}>
+          {(['easy', 'normal', 'hard'] as AiDifficulty[]).map((level) => (
+            <TouchableOpacity
+              key={level}
+              accessibilityRole="button"
+              accessibilityState={{ selected: difficulty === level }}
+              onPress={() => changeDifficulty(level)}
+              style={[styles.difficultyButton, difficulty === level ? styles.difficultySelected : null]}
+            >
+              <Text style={[styles.difficultyText, difficulty === level ? styles.difficultyTextSelected : null]}>
+                {level.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.phaseBanner}>
           <Text style={styles.phaseText}>{phaseLabel}</Text>
-          <Text style={styles.phaseHint}>{state.phase === 'overtime' ? '1 mana / sec' : '1 mana / 2 sec'}</Text>
+          <Text style={styles.phaseHint}>
+            {difficulty.toUpperCase()} AI · {state.phase === 'overtime' ? '1 mana / sec' : '1 mana / 2 sec'}
+          </Text>
         </View>
 
         <View style={styles.scoreRow}>
@@ -191,6 +219,11 @@ const styles = StyleSheet.create({
   subtitle: { color: '#8593a9', fontSize: 12, marginTop: 2 },
   resetButton: { borderWidth: 1, borderColor: '#39465c', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
   resetText: { color: '#d8dfeb', fontSize: 9, fontWeight: '900' },
+  difficultyRow: { flexDirection: 'row', gap: 8 },
+  difficultyButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
+  difficultySelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
+  difficultyText: { color: '#7f8da5', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  difficultyTextSelected: { color: '#f6f8fc' },
   phaseBanner: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#171e2a', borderRadius: 10, padding: 9 },
   phaseText: { color: '#f6f8fc', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   phaseHint: { color: '#9f8ac7', fontSize: 10, fontWeight: '800' },
