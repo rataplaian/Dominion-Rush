@@ -1,10 +1,10 @@
 # Dominion Rush — MVP 1.0
 
-Dominion Rush is a real-time tactical mobile game played on a **5×6 grid**. Players spend regenerating mana to deploy persistent units and structures. Combat is automatic and cooldown-driven; the player's main skill is timing, formation and territorial control.
+Dominion Rush is a **single-player** real-time tactical mobile game played on a **5×6 grid**. Players spend regenerating mana to deploy persistent units and structures. Combat is automatic and cooldown-driven; the player's main skill is timing, formation and territorial control.
 
 ## MVP rules
 
-- 1v1 player vs deterministic bot.
+- Single-player battles against deterministic AI with Easy, Normal and Hard difficulty profiles.
 - Both sides start with **3 mana**, maximum **10**.
 - Regulation mana: **1 mana every 2 seconds**.
 - Fixed **8-card deck** and rotating **4-card hand**.
@@ -70,6 +70,19 @@ tests/
 GAME_DESIGN.md
 eas.json
 ```
+
+## Product direction
+
+Dominion Rush is intentionally **single-player only**. The roadmap focuses on:
+- stronger AI personalities and difficulty;
+- campaign missions and challenge battles;
+- deck building and unlockable cards;
+- enemy factions/archetypes;
+- tutorial and progression;
+- final art, animation, sound and polish;
+- offline-friendly save/progression.
+
+PvP, matchmaking, ranked ladders, accounts and live multiplayer servers are out of scope.
 
 ## Build readiness
 
