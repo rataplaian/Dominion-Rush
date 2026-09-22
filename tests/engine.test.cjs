@@ -6,6 +6,7 @@ const {
   tickGame,
   entityAt,
   DEFAULT_CONFIG,
+  SKIRMISH_PRESETS,
   UNIT_BY_ID,
   territoryOwnerAt,
   territoryCount,
@@ -70,6 +71,14 @@ function deploy(state, side, id, row, col) {
   assert.equal(result.ok, true, result.reason);
   return result.state;
 }
+
+test('all skirmish presets contain 8 valid unique cards', () => {
+  for (const preset of Object.values(SKIRMISH_PRESETS)) {
+    assert.equal(preset.deck.length, 8);
+    assert.equal(new Set(preset.deck).size, 8);
+    for (const id of preset.deck) assert.ok(UNIT_BY_ID[id]);
+  }
+});
 
 test('AI difficulty profiles change decision speed without changing player economy', () => {
   const easy = createGameConfig('easy');
