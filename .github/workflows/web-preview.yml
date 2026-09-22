@@ -85,3 +85,29 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify live mobile preview
+        shell: bash
+        run: |
+          sleep 3
+          URL="https://rataplaian.github.io/Dominion-Rush/?build=${GITHUB_SHA}"
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo "No Chromium-compatible browser found on runner."
+            exit 1
+          fi
+
+          "$CHROME_BIN" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --window-size=390,844 \
+            --virtual-time-budget=5000 \
+            --dump-dom \
+            "$URL" \
+            > /tmp/dominion-live-dom.html \
+            2> /tmp/dominion-live-browser.log || true
+
+          cat /tmp/dominion-live-browser.log || true
+          grep -q "Dominion Rush" /tmp/dominion-live-dom.html
+          grep -q "PLAY" /tmp/dominion-live-dom.html
