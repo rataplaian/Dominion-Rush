@@ -2,6 +2,8 @@ export const BOARD_ROWS = 6;
 export const BOARD_COLS = 5;
 
 export type Side = 'player' | 'enemy';
+export type Winner = Side | 'draw';
+export type MatchPhase = 'regulation' | 'overtime' | 'finished';
 export type EntityKind = 'unit' | 'structure';
 export type AttackType = 'melee' | 'ranged' | 'none';
 export type DeploymentRule = 'any_owned' | 'not_home_row';
@@ -37,9 +39,16 @@ export interface Entity {
   chargePrimed: boolean;
 }
 
+export interface CardCycleState {
+  deck: string[];
+  hand: string[];
+  drawIndex: number;
+}
+
 export interface PlayerState {
   mana: number;
   coreHp: number;
+  cards: CardCycleState;
 }
 
 export interface CombatEvent {
@@ -50,10 +59,11 @@ export interface CombatEvent {
 
 export interface GameState {
   timeMs: number;
+  phase: MatchPhase;
   players: Record<Side, PlayerState>;
   entities: Entity[];
   territory: Side[][];
-  winner: Side | null;
+  winner: Winner | null;
   nextEntityId: number;
   nextEventId: number;
   rngState: number;
@@ -65,8 +75,13 @@ export interface GameConfig {
   startingMana: number;
   maxMana: number;
   manaPerSecond: number;
+  overtimeManaPerSecond: number;
   coreHp: number;
   enemyThinkEveryMs: number;
+  regulationMs: number;
+  overtimeMs: number;
+  deckSize: number;
+  handSize: number;
 }
 
 export interface PlacementResult {
