@@ -106,7 +106,7 @@ export default function App() {
             <Text style={styles.title}>Dominion Rush</Text>
             <Text style={styles.subtitle}>Real-time grid tactics · 5 × 6 battlefield</Text>
           </View>
-          <TouchableOpacity accessibilityRole="button" onPress={reset} style={styles.resetButton}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => reset()} style={styles.resetButton}>
             <Text style={styles.resetText}>NEW MATCH</Text>
           </TouchableOpacity>
         </View>
@@ -157,7 +157,7 @@ export default function App() {
             <Text style={styles.resultText}>
               {state.events[state.events.length - 1]?.text ?? 'Match finished.'}
             </Text>
-            <TouchableOpacity accessibilityRole="button" onPress={reset} style={styles.playAgainButton}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => reset()} style={styles.playAgainButton}>
               <Text style={styles.playAgainText}>PLAY AGAIN</Text>
             </TouchableOpacity>
           </View>
