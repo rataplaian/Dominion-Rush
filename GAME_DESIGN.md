@@ -1,4 +1,4 @@
-# Dominion Rush — Game Design Baseline 1.0
+# Dominion Rush — Skirmish Alpha Design Baseline
 
 ## Core idea
 
@@ -192,7 +192,23 @@ These are product-expansion systems, not blockers for the core game:
 - localization;
 - store publishing metadata.
 
-## Single-player product direction
+## Current phase: Skirmish Alpha
+
+No campaign or progression design should constrain the core rules yet.
+
+The current build exists to answer:
+- Is placement satisfying?
+- Is mana timing interesting?
+- Are melee/ranged formations readable?
+- Is advancing and conquering territory strategically meaningful?
+- Does the emergency-cell rule create comeback potential without removing the reward for pressure?
+- Are match length and overtime appropriate?
+- Are there enough meaningful choices with an 8-card deck / 4-card hand?
+- Can the AI create interesting matches without cheating?
+
+Skirmish presets currently cover Balanced, Rush and Siege archetypes and collectively expose all implemented gameplay roles.
+
+## Future single-player product direction
 
 Dominion Rush is designed as an offline-first single-player game. Future work prioritizes:
 - campaign structure and authored missions;
