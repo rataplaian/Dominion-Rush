@@ -1,6 +1,6 @@
 {
   "name": "dominion-rush",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test:engine": "bash scripts/test-engine.sh"
+    "test:engine": "bash scripts/test-engine.sh",
+    "typecheck": "tsc -p tsconfig.ui-check.json"
   },
   "dependencies": {
     "expo": "~57.0.0",
