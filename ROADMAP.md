@@ -1,54 +1,51 @@
-# Dominion Rush — Single-player Roadmap
+# Dominion Rush — Skirmish Alpha Roadmap
+
+## Current goal
+
+For now Dominion Rush is **only a gameplay testbed**.
+
+Campaign, progression, unlocks, collection systems, bosses, story, monetization and long-term meta are intentionally deferred until the core skirmish is proven fun.
 
 ## Current baseline
+
 - 5×6 real-time tactical grid.
 - 8-card deck / 4-card rotating hand.
-- mana economy and overtime.
+- 3 mana start / 10 max.
+- regulation + overtime.
 - melee, ranged and structures.
-- territorial conquest and emergency reinforcement cells.
+- automatic cooldown combat.
+- advancing units and territory conquest.
+- protected final rows.
+- emergency reinforcement cells.
 - 12 implemented card definitions.
-- deterministic AI.
-- Easy / Normal / Hard AI profiles.
-- automated engine and UI checks.
+- Easy / Normal / Hard AI.
+- Balanced / Rush / Siege skirmish deck presets.
+- automated engine/UI checks.
 - Expo mobile/web build pipeline.
 
-## Phase A — Playable vertical slice
-- stabilize browser/mobile preview;
-- improve combat readability and cooldown feedback;
-- tune starting deck and match pacing;
-- add a proper title/menu → battle → result loop;
-- add basic tutorial hints.
+## Active development — gameplay only
 
-## Phase B — Single-player content
-- campaign mission model;
-- enemy decks with distinct archetypes;
-- mission objectives and modifiers;
-- boss / elite encounters;
-- 20–30 launch cards;
-- deck builder;
-- unlock progression.
+1. Make skirmishes easy to launch and replay.
+2. Improve combat readability.
+3. Expose cooldown/movement information clearly.
+4. Test all existing units through deck presets.
+5. Tune mana, damage, HP, attack speed and advance speed.
+6. Improve AI decision quality without giving it hidden bonuses.
+7. Remove stalemates and dominant strategies.
+8. Decide whether 3:00 + overtime is the right match duration.
+9. Validate the territory-conquest and emergency-cell mechanics.
+10. Only after the above works, decide what the final game around it should be.
 
-## Phase C — Presentation
-- final visual identity;
-- unit/card illustrations;
-- attack, damage and conquest animations;
-- sound effects and music;
-- transitions and result presentation;
-- accessibility options.
+## Explicitly deferred
 
-## Phase D — Release readiness
-- local save/progression;
-- settings;
-- analytics/crash reporting only if useful;
-- final icons/splash/store screenshots;
-- privacy/store metadata;
-- Android/iOS production builds;
-- closed testing and balancing.
-
-## Explicitly out of scope
-- PvP;
-- matchmaking;
-- ranked ladder;
-- multiplayer servers;
-- mandatory accounts;
-- chat/clans/live social systems.
+- campaign;
+- story;
+- progression;
+- collection/unlocks;
+- deck-building progression;
+- bosses;
+- monetization;
+- final art production;
+- multiplayer/PvP;
+- accounts and servers;
+- store release work beyond what is useful for testing.
