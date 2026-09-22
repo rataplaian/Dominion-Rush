@@ -13,6 +13,8 @@ const {
   isEmergencyCellActive,
   getEmergencyRow,
   getMatchRemainingMs,
+  manualAdvanceEntity,
+  claimPlayerHalfCell,
 } = require('../.engine-build/index.js');
 
 let passed = 0;
@@ -393,6 +395,78 @@ test('remaining clock reports regulation and overtime correctly', () => {
   assert.equal(getMatchRemainingMs(state), 120_000);
   state = { ...state, phase: 'overtime', timeMs: DEFAULT_CONFIG.regulationMs + 10_000 };
   assert.equal(getMatchRemainingMs(state), 50_000);
+});
+
+
+test('player can spend 2 mana to manually advance one unit by one free cell', () => {
+  let state = createInitialState(28);
+  state = deploy(state, 'player', 'guardian', 4, 2);
+  state = withMana(state, 'player', 5);
+  const unit = state.entities.find((entity) => entity.owner === 'player' && entity.definitionId === 'guardian');
+  const result = manualAdvanceEntity(state, 'player', unit.id);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.players.player.mana, 3);
+  assert.equal(result.state.entities.find((entity) => entity.id === unit.id).row, 3);
+  assert.equal(territoryOwnerAt(result.state, 3, 2), 'player');
+});
+
+test('manual advance is blocked without spending mana when the cell ahead is occupied', () => {
+  let state = withCenterFrontlines(createInitialState(29));
+  state = deploy(state, 'player', 'guardian', 3, 1);
+  state = deploy(state, 'enemy', 'guardian', 2, 1);
+  state = withMana(state, 'player', 5);
+  const unit = state.entities.find((entity) => entity.owner === 'player' && entity.definitionId === 'guardian');
+  const result = manualAdvanceEntity(state, 'player', unit.id);
+  assert.equal(result.ok, false);
+  assert.equal(result.state.players.player.mana, 5);
+  assert.match(result.reason, /occupied/);
+});
+
+test('connected empty territory in the player half costs 1 mana to claim', () => {
+  let state = createInitialState(30);
+  state = withMana(state, 'player', 5);
+  const result = claimPlayerHalfCell(state, 3, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.players.player.mana, 4);
+  assert.equal(territoryOwnerAt(result.state, 3, 0), 'player');
+});
+
+test('isolated empty territory in the player half costs 2 mana to claim', () => {
+  let state = createInitialState(31);
+  const territory = state.territory.map((row) => [...row]);
+  territory[3][2] = 'enemy';
+  territory[4][2] = 'enemy';
+  territory[3][1] = 'enemy';
+  territory[3][3] = 'enemy';
+  state = { ...state, territory };
+  state = withMana(state, 'player', 5);
+
+  const result = claimPlayerHalfCell(state, 3, 2);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.players.player.mana, 3);
+  assert.equal(territoryOwnerAt(result.state, 3, 2), 'player');
+});
+
+test('territory cannot be bought directly in the enemy half', () => {
+  let state = withMana(createInitialState(32), 'player', 5);
+  const result = claimPlayerHalfCell(state, 2, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.state.players.player.mana, 5);
+  assert.match(result.reason, /your half/);
+});
+
+test('occupied territory cannot be claimed manually', () => {
+  let state = createInitialState(33);
+  state = deploy(state, 'player', 'guardian', 4, 0);
+  const territory = state.territory.map((row) => [...row]);
+  territory[4][0] = 'enemy';
+  state = { ...state, territory };
+  state = withMana(state, 'player', 5);
+
+  const result = claimPlayerHalfCell(state, 4, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.state.players.player.mana, 5);
+  assert.match(result.reason, /empty/);
 });
 
 console.log(`\n${passed} engine tests passed.`);
