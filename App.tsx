@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { CardBar } from './src/components/CardBar';
+import { DeckLibrary } from './src/components/DeckLibrary';
 import { GameBoard } from './src/components/GameBoard';
 import {
   AiDifficulty,
@@ -89,6 +90,7 @@ export default function App() {
     ),
   );
   const [selectedCardId, setSelectedCardId] = useState(() => state.players.player.cards.hand[0]);
+  const [libraryUnitId, setLibraryUnitId] = useState<string>(SKIRMISH_PRESETS.balanced.deck[0]);
   const [inspectedEntityId, setInspectedEntityId] = useState<number | null>(null);
   const [message, setMessage] = useState('Choose difficulty and decks, then press START MATCH.');
   const [started, setStarted] = useState(false);
@@ -141,6 +143,7 @@ export default function App() {
     const fresh = buildState(level, nextPlayerPreset, nextEnemyPreset);
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
+    setLibraryUnitId(SKIRMISH_PRESETS[nextPlayerPreset].deck[0]);
     setInspectedEntityId(null);
     setStarted(false);
     setPaused(false);
@@ -151,6 +154,7 @@ export default function App() {
     const fresh = buildState(difficulty, playerPreset, enemyPreset);
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
+    setLibraryUnitId(SKIRMISH_PRESETS[playerPreset].deck[0]);
     setInspectedEntityId(null);
     setPaused(false);
     setStarted(true);
@@ -263,6 +267,12 @@ export default function App() {
           </View>
           <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[playerPreset].description}</Text>
 
+          <DeckLibrary
+            deckIds={SKIRMISH_PRESETS[playerPreset].deck}
+            selectedId={libraryUnitId}
+            onSelect={setLibraryUnitId}
+          />
+
           <Text style={[styles.presetLabel, styles.enemyPresetLabel]}>ENEMY DECK</Text>
           <View style={styles.presetRow}>
             {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
@@ -284,8 +294,8 @@ export default function App() {
 
           {!started ? (
             <TouchableOpacity accessibilityRole="button" onPress={startMatch} style={styles.startButton}>
-              <Text style={styles.startButtonText}>▶ START MATCH</Text>
-              <Text style={styles.startButtonHint}>Timer and enemy AI start only after this button.</Text>
+              <Text style={styles.startButtonText}>▶ PLAY</Text>
+              <Text style={styles.startButtonHint}>Nothing moves before PLAY. Timer, mana regeneration and enemy AI begin only after PLAY.</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -323,7 +333,7 @@ export default function App() {
           <View style={styles.readyNotice}>
             <Text style={styles.readyTitle}>THE BATTLE HAS NOT STARTED</Text>
             <Text style={styles.readyText}>
-              The board is frozen. You can inspect your hand below before pressing START MATCH.
+              The board, timer, mana regeneration and enemy AI are frozen. Inspect your deck and press PLAY when ready.
             </Text>
           </View>
         ) : null}
@@ -422,7 +432,7 @@ export default function App() {
         </View>
 
         <Text style={styles.rules}>
-          Eight-card deck, four-card rotating hand. Tap a card to read its exact stats. Tap any deployed unit to inspect it. Units attack automatically when a valid target enters their forward range. Advancing units conquer enemy cells except the protected final row.
+          Eight-card deck, four-card rotating hand. The two center rows begin neutral and cannot be used for deployment until conquered by an advancing unit. Tap cards or deployed units to inspect exact stats and effects.
         </Text>
       </ScrollView>
     </SafeAreaView>
