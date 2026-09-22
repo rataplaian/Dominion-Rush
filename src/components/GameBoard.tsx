@@ -20,17 +20,41 @@ interface GameBoardProps {
   onCellPress: (row: number, col: number) => void;
 }
 
-function EntityToken({ entity }: { entity: Entity }) {
+function EntityToken({ entity, timeMs }: { entity: Entity; timeMs: number }) {
   const definition = UNIT_BY_ID[entity.definitionId];
   const hpRatio = Math.max(0, Math.min(1, entity.hp / definition.maxHp));
+
+  const attackRemaining = Math.max(0, entity.attackReadyAt - timeMs);
+  const attackRatio = definition.attackType === 'none'
+    ? 0
+    : Math.max(0, Math.min(1, 1 - attackRemaining / definition.attackCooldownMs));
+
+  const moveRemaining = definition.advanceCooldownMs && entity.moveReadyAt !== null
+    ? Math.max(0, entity.moveReadyAt - timeMs)
+    : null;
+
   return (
     <View style={[styles.token, entity.owner === 'player' ? styles.playerToken : styles.enemyToken]}>
-      <Text style={styles.icon}>{definition.icon}</Text>
+      <View style={styles.tokenTopRow}>
+        <Text style={styles.icon}>{definition.icon}</Text>
+        {moveRemaining !== null ? (
+          <Text style={styles.moveTimer}>{Math.ceil(moveRemaining / 1000)}s↑</Text>
+        ) : null}
+      </View>
+
       <Text style={styles.tokenName} numberOfLines={1}>{definition.shortName}</Text>
+
       <View style={styles.hpTrack}>
         <View style={[styles.hpFill, { width: `${hpRatio * 100}%` }]} />
       </View>
-      {definition.advanceCooldownMs ? <Text style={styles.moveMark}>↑</Text> : null}
+
+      {definition.attackType !== 'none' ? (
+        <View style={styles.cooldownTrack}>
+          <View style={[styles.cooldownFill, { width: `${attackRatio * 100}%` }]} />
+        </View>
+      ) : (
+        <Text style={styles.passiveMark}>■</Text>
+      )}
     </View>
   );
 }
@@ -80,7 +104,7 @@ function Cell({
       ]}
     >
       {entity ? (
-        <EntityToken entity={entity} />
+        <EntityToken entity={entity} timeMs={state.timeMs} />
       ) : emergencySide && activeEmergency ? (
         <Text style={styles.emergencyMark}>+</Text>
       ) : (
@@ -149,6 +173,7 @@ export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
+        <Text style={styles.legendText}>Lower bar = attack CD</Text>
       </View>
     </View>
   );
@@ -174,23 +199,30 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.72 },
   cellDot: { color: '#62708a', fontSize: 20 },
   token: {
-    width: '84%',
-    height: '84%',
+    width: '86%',
+    height: '86%',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
   },
   playerToken: { backgroundColor: '#174b6b', borderColor: '#6fb6df' },
   enemyToken: { backgroundColor: '#633042', borderColor: '#d48aa3' },
-  icon: { fontSize: 18, lineHeight: 21 },
-  tokenName: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  tokenTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  icon: { fontSize: 16, lineHeight: 18 },
+  moveTimer: { color: '#eef2f7', fontSize: 7, fontWeight: '900' },
+  tokenName: { color: '#fff', fontSize: 8, fontWeight: '900', marginTop: -1 },
   hpTrack: {
-    width: '78%', height: 4, backgroundColor: '#121722', borderRadius: 99, overflow: 'hidden', marginTop: 2,
+    width: '86%', height: 4, backgroundColor: '#121722', borderRadius: 99, overflow: 'hidden', marginTop: 2,
   },
   hpFill: { height: '100%', backgroundColor: '#7bd389' },
-  moveMark: { position: 'absolute', right: 3, top: 1, color: '#fff', fontSize: 10, fontWeight: '900' },
+  cooldownTrack: {
+    width: '86%', height: 3, backgroundColor: '#161c29', borderRadius: 99, overflow: 'hidden', marginTop: 2,
+  },
+  cooldownFill: { height: '100%', backgroundColor: '#d9bf74' },
+  passiveMark: { color: '#708096', fontSize: 6, lineHeight: 7, marginTop: 1 },
   sideLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 5 },
   sideLabel: { color: '#9eacc3', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
   hint: { color: '#68758a', fontSize: 9 },
