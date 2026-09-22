@@ -3,6 +3,7 @@ export const BOARD_COLS = 5;
 
 export type Side = 'player' | 'enemy';
 export type Winner = Side | 'draw';
+export type AiDifficulty = 'easy' | 'normal' | 'hard';
 export type MatchPhase = 'regulation' | 'overtime' | 'finished';
 export type EntityKind = 'unit' | 'structure';
 export type AttackType = 'melee' | 'ranged' | 'none';
@@ -82,6 +83,8 @@ export interface GameConfig {
   overtimeMs: number;
   deckSize: number;
   handSize: number;
+  aiDifficulty: AiDifficulty;
+  aiTopChoices: number;
 }
 
 export interface PlacementResult {
