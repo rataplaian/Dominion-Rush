@@ -15,8 +15,9 @@ import {
   DEFAULT_CONFIG,
   formatMana,
   GameState,
+  getMatchRemainingMs,
   placeEntity,
-  STARTER_DECK,
+  territoryCount,
   tickGame,
   UNIT_BY_ID,
 } from './src/game';
@@ -32,10 +33,15 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatClock(ms: number): string {
+  const total = Math.ceil(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
 export default function App() {
   const [state, setState] = useState<GameState>(() => createInitialState());
-  const [selectedCardId, setSelectedCardId] = useState(STARTER_DECK[0]);
-  const [message, setMessage] = useState('Select a card, then deploy it on a blue cell. Territory can change during battle.');
+  const [selectedCardId, setSelectedCardId] = useState(() => createInitialState().players.player.cards.hand[0]);
+  const [message, setMessage] = useState('Select one of the 4 cards in your hand, then deploy it on a blue cell.');
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
@@ -46,11 +52,16 @@ export default function App() {
     return () => clearInterval(handle);
   }, [paused, state.winner]);
 
-  const selected = UNIT_BY_ID[selectedCardId];
-  const seconds = Math.floor(state.timeMs / 1000);
-  const timeLabel = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  useEffect(() => {
+    if (!state.players.player.cards.hand.includes(selectedCardId)) {
+      setSelectedCardId(state.players.player.cards.hand[0]);
+    }
+  }, [state.players.player.cards.hand, selectedCardId]);
 
-  const recentEvents = useMemo(() => [...state.events].reverse().slice(0, 4), [state.events]);
+  const selected = UNIT_BY_ID[selectedCardId];
+  const remaining = getMatchRemainingMs(state);
+  const phaseLabel = state.phase === 'overtime' ? 'OVERTIME · 2× MANA' : state.phase === 'finished' ? 'FINISHED' : 'REGULATION';
+  const recentEvents = useMemo(() => [...state.events].reverse().slice(0, 5), [state.events]);
 
   const handleCellPress = (row: number, col: number) => {
     const result = placeEntity(state, 'player', selectedCardId, row, col);
@@ -59,15 +70,21 @@ export default function App() {
       return;
     }
     setState(result.state);
-    setMessage(`${selected.name} deployed.`);
+    setMessage(`${selected.name} deployed. Next card drawn automatically.`);
   };
 
   const reset = () => {
-    setState(createInitialState(Date.now() | 0));
-    setSelectedCardId(STARTER_DECK[0]);
+    const fresh = createInitialState(Date.now() | 0);
+    setState(fresh);
+    setSelectedCardId(fresh.players.player.cards.hand[0]);
     setPaused(false);
-    setMessage('New match. Blue cells are yours; advancing units can conquer enemy territory.');
+    setMessage('New match. Control territory, pressure lanes and destroy the enemy Core.');
   };
+
+  const resultTitle =
+    state.winner === 'player' ? 'VICTORY' :
+    state.winner === 'enemy' ? 'DEFEAT' :
+    state.winner === 'draw' ? 'DRAW' : '';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -75,23 +92,30 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.eyebrow}>PROTOTYPE 0.2</Text>
+            <Text style={styles.eyebrow}>MVP 1.0</Text>
             <Text style={styles.title}>Dominion Rush</Text>
-            <Text style={styles.subtitle}>Real-time lane tactics on a 5 × 6 grid</Text>
+            <Text style={styles.subtitle}>Real-time grid tactics · 5 × 6 battlefield</Text>
           </View>
           <TouchableOpacity accessibilityRole="button" onPress={reset} style={styles.resetButton}>
-            <Text style={styles.resetText}>RESET</Text>
+            <Text style={styles.resetText}>NEW MATCH</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.phaseBanner}>
+          <Text style={styles.phaseText}>{phaseLabel}</Text>
+          <Text style={styles.phaseHint}>{state.phase === 'overtime' ? '1 mana / sec' : '1 mana / 2 sec'}</Text>
         </View>
 
         <View style={styles.scoreRow}>
           <StatPill label="ENEMY CORE" value={`${Math.round(state.players.enemy.coreHp)} HP`} />
-          <StatPill label="TIME" value={timeLabel} />
+          <StatPill label="TIME" value={formatClock(remaining)} />
           <StatPill label="YOUR CORE" value={`${Math.round(state.players.player.coreHp)} HP`} />
         </View>
 
         <View style={styles.enemyManaRow}>
-          <Text style={styles.enemyMana}>Enemy mana: {formatMana(state.players.enemy.mana)} / {DEFAULT_CONFIG.maxMana}</Text>
+          <Text style={styles.enemyMana}>
+            Territory {territoryCount(state, 'enemy')}–{territoryCount(state, 'player')} · Enemy mana {formatMana(state.players.enemy.mana)}
+          </Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => setPaused((value) => !value)} style={styles.pauseButton}>
             <Text style={styles.pauseText}>{paused ? '▶ PLAY' : 'Ⅱ PAUSE'}</Text>
           </TouchableOpacity>
@@ -101,8 +125,13 @@ export default function App() {
 
         {state.winner ? (
           <View style={styles.resultBox}>
-            <Text style={styles.resultTitle}>{state.winner === 'player' ? 'VICTORY' : 'DEFEAT'}</Text>
-            <Text style={styles.resultText}>{state.winner === 'player' ? 'You destroyed the enemy Core.' : 'The enemy destroyed your Core.'}</Text>
+            <Text style={styles.resultTitle}>{resultTitle}</Text>
+            <Text style={styles.resultText}>
+              {state.events[state.events.length - 1]?.text ?? 'Match finished.'}
+            </Text>
+            <TouchableOpacity accessibilityRole="button" onPress={reset} style={styles.playAgainButton}>
+              <Text style={styles.playAgainText}>PLAY AGAIN</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -114,10 +143,13 @@ export default function App() {
           <View style={styles.manaTrack}>
             <View style={[styles.manaFill, { width: `${(state.players.player.mana / DEFAULT_CONFIG.maxMana) * 100}%` }]} />
           </View>
-          <Text style={styles.manaHint}>Starts at 3 · regenerates 1 mana every 2 seconds</Text>
+          <Text style={styles.manaHint}>
+            Starts at 3 · maximum 10 · doubles only during overtime
+          </Text>
         </View>
 
         <CardBar
+          cardIds={state.players.player.cards.hand}
           mana={state.players.player.mana}
           selectedCardId={selectedCardId}
           onSelect={(id) => {
@@ -142,7 +174,7 @@ export default function App() {
         </View>
 
         <Text style={styles.rules}>
-          Attacks normally travel only along the same column. Melee fights from the front and cannot normally be deployed on the row nearest your Core; ranged units can use any controlled cell. Units marked ↑ advance on cooldown and permanently capture enemy cells they enter, except the defender's protected final row. Losing both conquerable cells of a lane opens a temporary emergency reinforcement cell behind that lane. Territory currently does not modify mana generation.
+          Eight-card deck, four-card rotating hand. Units and structures stay on their cells. Attacks normally travel along the same column. Melee cannot normally deploy on the row closest to its Core. Advancing units conquer enemy cells except the protected final row. A fully breached lane creates one emergency reinforcement slot. Regulation lasts 3:00; equal Core HP triggers 1:00 overtime with double mana. Remaining ties are resolved by territory, then draw.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -158,18 +190,23 @@ const styles = StyleSheet.create({
   title: { color: '#f7f9fc', fontSize: 26, fontWeight: '900', marginTop: 2 },
   subtitle: { color: '#8593a9', fontSize: 12, marginTop: 2 },
   resetButton: { borderWidth: 1, borderColor: '#39465c', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
-  resetText: { color: '#d8dfeb', fontSize: 10, fontWeight: '900' },
+  resetText: { color: '#d8dfeb', fontSize: 9, fontWeight: '900' },
+  phaseBanner: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#171e2a', borderRadius: 10, padding: 9 },
+  phaseText: { color: '#f6f8fc', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  phaseHint: { color: '#9f8ac7', fontSize: 10, fontWeight: '800' },
   scoreRow: { flexDirection: 'row', gap: 8 },
   statPill: { flex: 1, backgroundColor: '#171e2a', borderRadius: 12, padding: 9, borderWidth: 1, borderColor: '#273248' },
   statLabel: { color: '#77869b', fontSize: 8, fontWeight: '800' },
   statValue: { color: '#f6f8fc', fontSize: 12, fontWeight: '900', marginTop: 2 },
-  enemyManaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  enemyMana: { color: '#c28da1', fontSize: 11, fontWeight: '700' },
+  enemyManaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  enemyMana: { color: '#c28da1', fontSize: 10, fontWeight: '700', flex: 1 },
   pauseButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#1b2230' },
   pauseText: { color: '#b9c4d4', fontSize: 9, fontWeight: '900' },
-  resultBox: { backgroundColor: '#20283a', borderRadius: 14, borderWidth: 1, borderColor: '#596b89', padding: 16, alignItems: 'center' },
+  resultBox: { backgroundColor: '#20283a', borderRadius: 14, borderWidth: 1, borderColor: '#596b89', padding: 16, alignItems: 'center', gap: 7 },
   resultTitle: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 2 },
-  resultText: { color: '#aab6c8', fontSize: 12, marginTop: 4 },
+  resultText: { color: '#aab6c8', fontSize: 12, textAlign: 'center' },
+  playAgainButton: { marginTop: 4, backgroundColor: '#263c54', paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10 },
+  playAgainText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   manaPanel: { gap: 6 },
   manaHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   manaTitle: { color: '#9eacc3', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
