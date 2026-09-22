@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Dominion Rush",
+    "slug": "dominion-rush",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.prototype.dominionrush"
+    },
+    "ios": {
+      "bundleIdentifier": "com.prototype.dominionrush",
+      "supportsTablet": true
+    }
+  }
+}
