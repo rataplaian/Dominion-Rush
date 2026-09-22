@@ -18,6 +18,8 @@ interface GameBoardProps {
   state: GameState;
   selectedCardId: string;
   onCellPress: (row: number, col: number) => void;
+  onEntityPress?: (entity: Entity) => void;
+  interactionEnabled?: boolean;
 }
 
 function EntityToken({ entity, timeMs }: { entity: Entity; timeMs: number }) {
@@ -65,6 +67,8 @@ function Cell({
   col,
   selectedCardId,
   onCellPress,
+  onEntityPress,
+  interactionEnabled,
   emergencySide,
 }: {
   state: GameState;
@@ -72,6 +76,8 @@ function Cell({
   col: number;
   selectedCardId: string;
   onCellPress: (row: number, col: number) => void;
+  onEntityPress?: (entity: Entity) => void;
+  interactionEnabled: boolean;
   emergencySide?: 'player' | 'enemy';
   key?: string;
 }) {
@@ -80,6 +86,7 @@ function Cell({
   const normalOwner = emergencySide ? emergencySide : territoryOwnerAt(state, row, col);
   const activeEmergency = emergencySide ? isEmergencyCellActive(state, emergencySide, col) : false;
   const canAttemptDeploy = Boolean(
+    interactionEnabled &&
     definition &&
     !state.winner &&
     canDeployDefinitionAt(state, 'player', definition, row, col).ok,
@@ -91,8 +98,11 @@ function Cell({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${emergencySide ? 'Emergency ' : ''}row ${row + 1}, column ${col + 1}${entity ? `, ${UNIT_BY_ID[entity.definitionId].name}` : ', empty'}`}
-      onPress={() => onCellPress(row, col)}
-      disabled={Boolean(emergencySide && !activeEmergency && !entity)}
+      onPress={() => {
+        if (entity && onEntityPress) onEntityPress(entity);
+        else if (interactionEnabled) onCellPress(row, col);
+      }}
+      disabled={Boolean((emergencySide && !activeEmergency && !entity) || (!interactionEnabled && !entity))}
       style={({ pressed }) => [
         styles.cell,
         emergencySide ? styles.emergencyCell : null,
@@ -114,7 +124,13 @@ function Cell({
   );
 }
 
-export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps) {
+export function GameBoard({
+  state,
+  selectedCardId,
+  onCellPress,
+  onEntityPress,
+  interactionEnabled = true,
+}: GameBoardProps) {
   const normalRows = [];
   for (let row = 0; row < BOARD_ROWS; row += 1) {
     const cells = [];
@@ -127,6 +143,8 @@ export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps
           col={col}
           selectedCardId={selectedCardId}
           onCellPress={onCellPress}
+          onEntityPress={onEntityPress}
+          interactionEnabled={interactionEnabled}
         />,
       );
     }
@@ -152,6 +170,8 @@ export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps
               col={col}
               selectedCardId={selectedCardId}
               onCellPress={onCellPress}
+              onEntityPress={onEntityPress}
+              interactionEnabled={interactionEnabled}
               emergencySide={side}
             />
           ))}
@@ -165,7 +185,7 @@ export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps
       {renderEmergencyRow('enemy')}
       <View style={styles.sideLabelRow}>
         <Text style={styles.sideLabel}>DYNAMIC TERRITORY</Text>
-        <Text style={styles.hint}>gold border = protected final row</Text>
+        <Text style={styles.hint}>tap a unit to inspect it</Text>
       </View>
       <View style={styles.board}>{normalRows}</View>
       {renderEmergencyRow('player')}
@@ -173,7 +193,7 @@ export function GameBoard({ state, selectedCardId, onCellPress }: GameBoardProps
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
-        <Text style={styles.legendText}>Lower bar = attack CD</Text>
+        <Text style={styles.legendText}>Gold border = protected</Text>
       </View>
     </View>
   );
@@ -214,13 +234,9 @@ const styles = StyleSheet.create({
   icon: { fontSize: 16, lineHeight: 18 },
   moveTimer: { color: '#eef2f7', fontSize: 7, fontWeight: '900' },
   tokenName: { color: '#fff', fontSize: 8, fontWeight: '900', marginTop: -1 },
-  hpTrack: {
-    width: '86%', height: 4, backgroundColor: '#121722', borderRadius: 99, overflow: 'hidden', marginTop: 2,
-  },
+  hpTrack: { width: '86%', height: 4, backgroundColor: '#121722', borderRadius: 99, overflow: 'hidden', marginTop: 2 },
   hpFill: { height: '100%', backgroundColor: '#7bd389' },
-  cooldownTrack: {
-    width: '86%', height: 3, backgroundColor: '#161c29', borderRadius: 99, overflow: 'hidden', marginTop: 2,
-  },
+  cooldownTrack: { width: '86%', height: 3, backgroundColor: '#161c29', borderRadius: 99, overflow: 'hidden', marginTop: 2 },
   cooldownFill: { height: '100%', backgroundColor: '#d9bf74' },
   passiveMark: { color: '#708096', fontSize: 6, lineHeight: 7, marginTop: 1 },
   sideLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 5 },
