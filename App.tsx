@@ -15,11 +15,13 @@ import {
   AiDifficulty,
   createGameConfig,
   createInitialState,
+  claimPlayerHalfCell,
   DEFAULT_CONFIG,
   Entity,
   formatMana,
   GameState,
   getMatchRemainingMs,
+  manualAdvanceEntity,
   placeEntity,
   SKIRMISH_PRESETS,
   SkirmishPresetId,
@@ -164,6 +166,23 @@ export default function App() {
   const handleCellPress = (row: number, col: number) => {
     if (!started || paused || state.winner) return;
 
+    const isPlayerHalf = row >= 3;
+    const isUnownedPlayerHalfCell = isPlayerHalf && state.territory[row]?.[col] !== 'player';
+
+    if (isUnownedPlayerHalfCell) {
+      const claim = claimPlayerHalfCell(state, row, col);
+      if (!claim.ok) {
+        setMessage(claim.reason ?? 'Cannot claim that cell.');
+        return;
+      }
+
+      const spent = state.players.player.mana - claim.state.players.player.mana;
+      setState(claim.state);
+      setInspectedEntityId(null);
+      setMessage(`Territory claimed for ${spent.toFixed(0)} mana.`);
+      return;
+    }
+
     const result = placeEntity(state, 'player', selectedCardId, row, col);
     if (!result.ok) {
       setMessage(result.reason ?? 'Cannot deploy there.');
@@ -180,6 +199,28 @@ export default function App() {
     setMessage(
       `${entity.owner === 'player' ? 'Your' : 'Enemy'} ${unit.name}: ${Math.round(entity.hp)}/${unit.maxHp} HP.`,
     );
+  };
+
+  const handleEntityPress = (entity: Entity) => {
+    if (started && !paused && !state.winner && entity.owner === 'player') {
+      const definition = UNIT_BY_ID[entity.definitionId];
+
+      if (definition.kind === 'unit') {
+        const result = manualAdvanceEntity(state, 'player', entity.id);
+        if (result.ok) {
+          setState(result.state);
+          setInspectedEntityId(null);
+          setMessage(`${definition.name} advanced one cell for 2 mana.`);
+          return;
+        }
+
+        setInspectedEntityId(entity.id);
+        setMessage(result.reason ?? 'This unit cannot advance right now.');
+        return;
+      }
+    }
+
+    inspectEntity(entity);
   };
 
   const changeDifficulty = (level: AiDifficulty) => {
@@ -342,7 +383,7 @@ export default function App() {
           state={state}
           selectedCardId={selectedCardId}
           onCellPress={handleCellPress}
-          onEntityPress={inspectEntity}
+          onEntityPress={handleEntityPress}
           interactionEnabled={started && !paused && !Boolean(state.winner)}
         />
 
@@ -432,7 +473,7 @@ export default function App() {
         </View>
 
         <Text style={styles.rules}>
-          Eight-card deck, four-card rotating hand. The two center rows begin neutral and cannot be used for deployment until conquered by an advancing unit. Tap cards or deployed units to inspect exact stats and effects.
+          Eight-card deck, four-card rotating hand. Tap one of your units to spend 2 mana and advance it one cell if the cell ahead is free. Empty cells in your half can be claimed directly: 1 mana when orthogonally adjacent to your territory, otherwise 2 mana. Tap enemy units to inspect their exact stats and effects.
         </Text>
       </ScrollView>
     </SafeAreaView>
