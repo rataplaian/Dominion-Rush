@@ -90,3 +90,24 @@ export const STARTER_DECK = [
   'tower',
   'barricade',
 ];
+
+
+export const SKIRMISH_PRESETS = {
+  balanced: {
+    name: 'Balanced',
+    description: 'Mixed frontline, ranged pressure and defense.',
+    deck: ['guardian', 'legionnaire', 'knight', 'archer', 'pyromancer', 'spearman', 'tower', 'barricade'],
+  },
+  rush: {
+    name: 'Rush',
+    description: 'Aggressive advancing units and fast pressure.',
+    deck: ['guardian', 'legionnaire', 'knight', 'ram', 'archer', 'spearman', 'bombardier', 'barricade'],
+  },
+  siege: {
+    name: 'Siege',
+    description: 'Slower ranged control with heavy structures.',
+    deck: ['guardian', 'legionnaire', 'archer', 'crossbow', 'pyromancer', 'tower', 'ballista', 'barricade'],
+  },
+} as const;
+
+export type SkirmishPresetId = keyof typeof SKIRMISH_PRESETS;
