@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const {
+  createGameConfig,
   createInitialState,
   placeEntity,
   tickGame,
@@ -69,6 +70,24 @@ function deploy(state, side, id, row, col) {
   assert.equal(result.ok, true, result.reason);
   return result.state;
 }
+
+test('AI difficulty profiles change decision speed without changing player economy', () => {
+  const easy = createGameConfig('easy');
+  const normal = createGameConfig('normal');
+  const hard = createGameConfig('hard');
+
+  assert.ok(easy.enemyThinkEveryMs > normal.enemyThinkEveryMs);
+  assert.ok(normal.enemyThinkEveryMs > hard.enemyThinkEveryMs);
+  assert.ok(easy.aiTopChoices > normal.aiTopChoices);
+  assert.ok(normal.aiTopChoices > hard.aiTopChoices);
+
+  for (const config of [easy, normal, hard]) {
+    assert.equal(config.startingMana, 3);
+    assert.equal(config.maxMana, 10);
+    assert.equal(config.manaPerSecond, 0.5);
+    assert.equal(config.coreHp, 2500);
+  }
+});
 
 test('initial state has regulation, 3 mana, full cores and 4-card hands', () => {
   const state = createInitialState(1);
