@@ -2,17 +2,26 @@
   "expo": {
     "name": "Dominion Rush",
     "slug": "dominion-rush",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": ["**/*"],
+    "experiments": {
+      "baseUrl": "/Dominion-Rush"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Dominion Rush",
+      "shortName": "DominionRush"
+    },
     "android": {
       "package": "com.prototype.dominionrush",
-      "versionCode": 1
+      "versionCode": 2
     },
     "ios": {
       "bundleIdentifier": "com.prototype.dominionrush",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true
     }
   }
