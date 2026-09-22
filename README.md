@@ -1,4 +1,4 @@
-# Dominion Rush — MVP 1.0
+# Dominion Rush — Skirmish Alpha
 
 Dominion Rush is a **single-player** real-time tactical mobile game played on a **5×6 grid**. Players spend regenerating mana to deploy persistent units and structures. Combat is automatic and cooldown-driven; the player's main skill is timing, formation and territorial control.
 
@@ -71,7 +71,18 @@ GAME_DESIGN.md
 eas.json
 ```
 
-## Product direction
+## Current development focus
+
+The current build is intentionally **skirmish-only**. The goal is to test and refine the combat loop before designing any campaign or progression around it.
+
+Three deck presets are available:
+- **Balanced** — mixed frontline, ranged and defense;
+- **Rush** — more advancing pressure;
+- **Siege** — heavier ranged/structure control.
+
+Campaign, unlocks, progression and other meta-game systems are deferred until the skirmish is proven fun.
+
+## Long-term product direction
 
 Dominion Rush is intentionally **single-player only**. The roadmap focuses on:
 - stronger AI personalities and difficulty;
