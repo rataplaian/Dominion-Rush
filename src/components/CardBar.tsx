@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { UNIT_BY_ID } from '../game';
 
 interface CardBarProps {
@@ -18,7 +18,7 @@ export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProp
   return (
     <View>
       <Text style={styles.label}>HAND · TAP A CARD FOR DETAILS</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <View style={styles.content}>
         {cardIds.map((id, index) => {
           const definition = UNIT_BY_ID[id];
           if (!definition) return null;
@@ -42,49 +42,98 @@ export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProp
                 <Text style={styles.icon}>{definition.icon}</Text>
                 <Text style={styles.cost}>{definition.manaCost} ◈</Text>
               </View>
-              <Text style={styles.name} numberOfLines={1}>{definition.name}</Text>
-              <View style={styles.statsRow}>
+
+              <Text style={styles.name} numberOfLines={2}>
+                {definition.name}
+              </Text>
+
+              <View style={styles.statStack}>
                 <Text style={styles.stat}>HP {definition.maxHp}</Text>
                 <Text style={styles.stat}>{rangeLabel(definition.range, definition.attackType)}</Text>
-              </View>
-              <View style={styles.statsRow}>
-                <Text style={styles.stat}>{definition.attackType === 'none' ? 'DMG —' : `DMG ${definition.attackDamage}`}</Text>
+                <Text style={styles.stat}>
+                  {definition.attackType === 'none' ? 'DMG —' : `DMG ${definition.attackDamage}`}
+                </Text>
                 <Text style={styles.stat}>
                   {definition.advanceCooldownMs ? `MOVE ${definition.advanceCooldownMs / 1000}s` : 'STATIC'}
                 </Text>
               </View>
-              <Text style={styles.type}>
+
+              <Text style={styles.type} numberOfLines={1}>
                 {definition.kind === 'structure' ? 'STRUCTURE' : definition.attackType.toUpperCase()}
               </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  label: { color: '#9eacc3', fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6 },
-  content: { gap: 8, paddingRight: 12 },
+  label: {
+    color: '#9eacc3',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  content: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'stretch',
+  },
   card: {
-    width: 112,
+    flex: 1,
+    minWidth: 0,
     minHeight: 116,
-    padding: 9,
-    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#38445a',
     backgroundColor: '#1b2230',
     justifyContent: 'space-between',
   },
-  selected: { borderColor: '#6fb6df', borderWidth: 2, backgroundColor: '#1d3143' },
+  selected: {
+    borderColor: '#6fb6df',
+    borderWidth: 2,
+    backgroundColor: '#1d3143',
+  },
   unaffordable: { opacity: 0.48 },
   pressed: { transform: [{ scale: 0.98 }] },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  icon: { fontSize: 22 },
-  name: { color: '#f6f8fc', fontWeight: '800', fontSize: 11 },
-  cost: { color: '#c6a8ff', fontWeight: '900', fontSize: 12 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
-  stat: { color: '#a8b5c7', fontSize: 8, fontWeight: '800' },
-  type: { color: '#7f8da5', fontSize: 8, fontWeight: '700' },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 2,
+  },
+  icon: { fontSize: 18 },
+  name: {
+    color: '#f6f8fc',
+    fontWeight: '800',
+    fontSize: 9,
+    lineHeight: 11,
+    minHeight: 22,
+  },
+  cost: {
+    color: '#c6a8ff',
+    fontWeight: '900',
+    fontSize: 10,
+  },
+  statStack: {
+    gap: 1,
+  },
+  stat: {
+    color: '#a8b5c7',
+    fontSize: 7,
+    lineHeight: 9,
+    fontWeight: '800',
+  },
+  type: {
+    color: '#7f8da5',
+    fontSize: 7,
+    lineHeight: 9,
+    fontWeight: '700',
+  },
 });
