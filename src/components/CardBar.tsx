@@ -9,10 +9,15 @@ interface CardBarProps {
   onSelect: (id: string) => void;
 }
 
+function rangeLabel(range: number, attackType: string): string {
+  if (attackType === 'none') return 'NO ATK';
+  return `RNG ${range}`;
+}
+
 export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProps) {
   return (
     <View>
-      <Text style={styles.label}>HAND</Text>
+      <Text style={styles.label}>HAND · TAP A CARD FOR DETAILS</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
         {cardIds.map((id, index) => {
           const definition = UNIT_BY_ID[id];
@@ -33,10 +38,24 @@ export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProp
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Text style={styles.icon}>{definition.icon}</Text>
+              <View style={styles.topRow}>
+                <Text style={styles.icon}>{definition.icon}</Text>
+                <Text style={styles.cost}>{definition.manaCost} ◈</Text>
+              </View>
               <Text style={styles.name} numberOfLines={1}>{definition.name}</Text>
-              <Text style={styles.cost}>{definition.manaCost} ◈</Text>
-              <Text style={styles.type}>{definition.kind === 'structure' ? 'STRUCTURE' : definition.attackType.toUpperCase()}</Text>
+              <View style={styles.statsRow}>
+                <Text style={styles.stat}>HP {definition.maxHp}</Text>
+                <Text style={styles.stat}>{rangeLabel(definition.range, definition.attackType)}</Text>
+              </View>
+              <View style={styles.statsRow}>
+                <Text style={styles.stat}>{definition.attackType === 'none' ? 'DMG —' : `DMG ${definition.attackDamage}`}</Text>
+                <Text style={styles.stat}>
+                  {definition.advanceCooldownMs ? `MOVE ${definition.advanceCooldownMs / 1000}s` : 'STATIC'}
+                </Text>
+              </View>
+              <Text style={styles.type}>
+                {definition.kind === 'structure' ? 'STRUCTURE' : definition.attackType.toUpperCase()}
+              </Text>
             </Pressable>
           );
         })}
@@ -46,12 +65,12 @@ export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProp
 }
 
 const styles = StyleSheet.create({
-  label: { color: '#9eacc3', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
+  label: { color: '#9eacc3', fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6 },
   content: { gap: 8, paddingRight: 12 },
   card: {
-    width: 92,
-    minHeight: 92,
-    padding: 8,
+    width: 112,
+    minHeight: 116,
+    padding: 9,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#38445a',
@@ -61,8 +80,11 @@ const styles = StyleSheet.create({
   selected: { borderColor: '#6fb6df', borderWidth: 2, backgroundColor: '#1d3143' },
   unaffordable: { opacity: 0.48 },
   pressed: { transform: [{ scale: 0.98 }] },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   icon: { fontSize: 22 },
   name: { color: '#f6f8fc', fontWeight: '800', fontSize: 11 },
   cost: { color: '#c6a8ff', fontWeight: '900', fontSize: 12 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  stat: { color: '#a8b5c7', fontSize: 8, fontWeight: '800' },
   type: { color: '#7f8da5', fontSize: 8, fontWeight: '700' },
 });
