@@ -92,6 +92,14 @@ function Cell({
     canDeployDefinitionAt(state, 'player', definition, row, col).ok,
   );
 
+  const claimablePlayerHalfCell = Boolean(
+    interactionEnabled &&
+    !emergencySide &&
+    !entity &&
+    row >= Math.floor(BOARD_ROWS / 2) &&
+    normalOwner !== 'player',
+  );
+
   const protectedRow = !emergencySide && (normalOwner === 'player' || normalOwner === 'enemy') ? isProtectedHomeRow(normalOwner, row) : false;
 
   return (
@@ -110,6 +118,7 @@ function Cell({
         protectedRow ? styles.protectedHome : null,
         emergencySide && !activeEmergency && !entity ? styles.inactiveEmergency : null,
         canAttemptDeploy ? styles.deployable : null,
+        claimablePlayerHalfCell ? styles.claimable : null,
         pressed ? styles.pressed : null,
       ]}
     >
@@ -185,14 +194,15 @@ export function GameBoard({
       {renderEmergencyRow('enemy')}
       <View style={styles.sideLabelRow}>
         <Text style={styles.sideLabel}>DYNAMIC TERRITORY</Text>
-        <Text style={styles.hint}>tap a unit to inspect it</Text>
+        <Text style={styles.hint}>your unit: +1 cell / 2 mana</Text>
       </View>
       <View style={styles.board}>{normalRows}</View>
       {renderEmergencyRow('player')}
       <View style={styles.legendRow}>
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
-        <Text style={styles.legendText}>Neutral = locked until conquered</Text>
+        <Text style={styles.legendText}>Cyan border = claimable territory</Text>
+        <Text style={styles.legendText}>Claim = 1 mana connected · 2 isolated</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
         <Text style={styles.legendText}>Gold border = protected</Text>
       </View>
@@ -218,6 +228,7 @@ const styles = StyleSheet.create({
   neutralTerritory: { backgroundColor: '#242833' },
   protectedHome: { borderColor: '#b99b4c', borderWidth: 1.5 },
   deployable: { backgroundColor: '#1d4260' },
+  claimable: { borderColor: '#66d9e8', borderWidth: 2 },
   pressed: { opacity: 0.72 },
   cellDot: { color: '#62708a', fontSize: 20 },
   token: {
