@@ -2,6 +2,7 @@ export const BOARD_ROWS = 6;
 export const BOARD_COLS = 5;
 
 export type Side = 'player' | 'enemy';
+export type TerritoryOwner = Side | 'neutral';
 export type Winner = Side | 'draw';
 export type AiDifficulty = 'easy' | 'normal' | 'hard';
 export type MatchPhase = 'regulation' | 'overtime' | 'finished';
@@ -63,7 +64,7 @@ export interface GameState {
   phase: MatchPhase;
   players: Record<Side, PlayerState>;
   entities: Entity[];
-  territory: Side[][];
+  territory: TerritoryOwner[][];
   winner: Winner | null;
   nextEntityId: number;
   nextEventId: number;
