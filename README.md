@@ -100,3 +100,8 @@ PvP, matchmaking, ranked ladders, accounts and live multiplayer servers are out 
 The repository includes Expo application metadata and EAS build profiles for preview and production. Store signing, EAS project linking, final icons/splash artwork, privacy/store metadata and publishing credentials still require external account setup before an actual App Store / Google Play release.
 
 See `GAME_DESIGN.md` for the complete current rules.
+
+
+## Phone playtest
+
+The web preview is generated automatically from `main` so the current Skirmish Alpha can be tested from a phone browser whenever GitHub Pages is enabled for this repository.
