@@ -19,6 +19,8 @@ import {
   GameState,
   getMatchRemainingMs,
   placeEntity,
+  SKIRMISH_PRESETS,
+  SkirmishPresetId,
   territoryCount,
   tickGame,
   UNIT_BY_ID,
@@ -42,8 +44,9 @@ function formatClock(ms: number): string {
 
 export default function App() {
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal');
+  const [preset, setPreset] = useState<SkirmishPresetId>('balanced');
   const config = useMemo(() => createGameConfig(difficulty), [difficulty]);
-  const [state, setState] = useState<GameState>(() => createInitialState(1337, createGameConfig('normal')));
+  const [state, setState] = useState<GameState>(() => createInitialState(1337, createGameConfig('normal'), [...SKIRMISH_PRESETS.balanced.deck], [...SKIRMISH_PRESETS.balanced.deck]));
   const [selectedCardId, setSelectedCardId] = useState(() => createInitialState().players.player.cards.hand[0]);
   const [message, setMessage] = useState('Select one of the 4 cards in your hand, then deploy it on a blue cell.');
   const [paused, setPaused] = useState(false);
@@ -77,18 +80,24 @@ export default function App() {
     setMessage(`${selected.name} deployed. Next card drawn automatically.`);
   };
 
-  const reset = (level: AiDifficulty = difficulty) => {
+  const reset = (level: AiDifficulty = difficulty, nextPreset: SkirmishPresetId = preset) => {
     const nextConfig = createGameConfig(level);
-    const fresh = createInitialState(Date.now() | 0, nextConfig);
+    const deck = [...SKIRMISH_PRESETS[nextPreset].deck];
+    const fresh = createInitialState(Date.now() | 0, nextConfig, deck, deck);
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
     setPaused(false);
-    setMessage(`New ${level} match. Control territory, pressure lanes and destroy the enemy Core.`);
+    setMessage(`New ${level} ${SKIRMISH_PRESETS[nextPreset].name} skirmish. Control territory, pressure lanes and destroy the enemy Core.`);
   };
 
   const changeDifficulty = (level: AiDifficulty) => {
     setDifficulty(level);
-    reset(level);
+    reset(level, preset);
+  };
+
+  const changePreset = (nextPreset: SkirmishPresetId) => {
+    setPreset(nextPreset);
+    reset(difficulty, nextPreset);
   };
 
   const resultTitle =
@@ -125,6 +134,26 @@ export default function App() {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        <View style={styles.presetSection}>
+          <Text style={styles.presetLabel}>SKIRMISH DECK</Text>
+          <View style={styles.presetRow}>
+            {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
+              <TouchableOpacity
+                key={id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: preset === id }}
+                onPress={() => changePreset(id)}
+                style={[styles.presetButton, preset === id ? styles.presetSelected : null]}
+              >
+                <Text style={[styles.presetText, preset === id ? styles.presetTextSelected : null]}>
+                  {SKIRMISH_PRESETS[id].name.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[preset].description}</Text>
         </View>
 
         <View style={styles.phaseBanner}>
@@ -219,6 +248,14 @@ const styles = StyleSheet.create({
   subtitle: { color: '#8593a9', fontSize: 12, marginTop: 2 },
   resetButton: { borderWidth: 1, borderColor: '#39465c', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
   resetText: { color: '#d8dfeb', fontSize: 9, fontWeight: '900' },
+  presetSection: { gap: 6 },
+  presetLabel: { color: '#9eacc3', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  presetRow: { flexDirection: 'row', gap: 8 },
+  presetButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
+  presetSelected: { borderColor: '#c6a8ff', backgroundColor: '#2a2340' },
+  presetText: { color: '#7f8da5', fontSize: 9, fontWeight: '900', letterSpacing: 0.6 },
+  presetTextSelected: { color: '#f5efff' },
+  presetDescription: { color: '#6f7e94', fontSize: 9 },
   difficultyRow: { flexDirection: 'row', gap: 8 },
   difficultyButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
   difficultySelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
