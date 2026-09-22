@@ -35,6 +35,34 @@ jobs:
       - name: Export Expo web build
         run: npm run export:web
 
+      - name: Browser smoke test
+        shell: bash
+        run: |
+          rm -rf .smoke-root
+          mkdir -p .smoke-root/Dominion-Rush
+          cp -R dist/. .smoke-root/Dominion-Rush/
+          npx --yes serve .smoke-root -l 4173 > /tmp/dominion-serve.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          sleep 3
+
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo "No Chromium-compatible browser found on runner."
+            exit 1
+          fi
+
+          "$CHROME_BIN"             --headless             --no-sandbox             --disable-gpu             --enable-logging=stderr             --v=0             --virtual-time-budget=4000             --dump-dom             http://127.0.0.1:4173/Dominion-Rush/             > /tmp/dominion-dom.html             2> /tmp/dominion-chrome.log || true
+
+          echo "---- Browser log ----"
+          cat /tmp/dominion-chrome.log || true
+          echo "---- Rendered DOM ----"
+          head -c 12000 /tmp/dominion-dom.html || true
+          echo
+
+          grep -q "Dominion Rush" /tmp/dominion-dom.html
+          grep -q "PLAY" /tmp/dominion-dom.html
+
       - name: Preserve preview artifact
         uses: actions/upload-artifact@v4
         with:
