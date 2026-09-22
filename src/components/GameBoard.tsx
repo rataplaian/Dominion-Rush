@@ -92,7 +92,7 @@ function Cell({
     canDeployDefinitionAt(state, 'player', definition, row, col).ok,
   );
 
-  const protectedRow = !emergencySide && normalOwner ? isProtectedHomeRow(normalOwner, row) : false;
+  const protectedRow = !emergencySide && (normalOwner === 'player' || normalOwner === 'enemy') ? isProtectedHomeRow(normalOwner, row) : false;
 
   return (
     <Pressable
@@ -106,7 +106,7 @@ function Cell({
       style={({ pressed }) => [
         styles.cell,
         emergencySide ? styles.emergencyCell : null,
-        normalOwner === 'enemy' ? styles.enemyTerritory : styles.playerTerritory,
+        normalOwner === 'enemy' ? styles.enemyTerritory : normalOwner === 'player' ? styles.playerTerritory : styles.neutralTerritory,
         protectedRow ? styles.protectedHome : null,
         emergencySide && !activeEmergency && !entity ? styles.inactiveEmergency : null,
         canAttemptDeploy ? styles.deployable : null,
@@ -192,6 +192,7 @@ export function GameBoard({
       <View style={styles.legendRow}>
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
+        <Text style={styles.legendText}>Neutral = locked until conquered</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
         <Text style={styles.legendText}>Gold border = protected</Text>
       </View>
@@ -214,6 +215,7 @@ const styles = StyleSheet.create({
   },
   enemyTerritory: { backgroundColor: '#201d2a' },
   playerTerritory: { backgroundColor: '#13263a' },
+  neutralTerritory: { backgroundColor: '#242833' },
   protectedHome: { borderColor: '#b99b4c', borderWidth: 1.5 },
   deployable: { backgroundColor: '#1d4260' },
   pressed: { opacity: 0.72 },
