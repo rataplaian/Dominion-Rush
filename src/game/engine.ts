@@ -204,6 +204,143 @@ export function canDeployDefinitionAt(
   return { ok: true };
 }
 
+
+export function manualAdvanceEntity(
+  state: GameState,
+  side: Side,
+  entityId: number,
+  manaCost = 2,
+): PlacementResult {
+  if (state.winner) return { ok: false, state, reason: 'The match is over.' };
+
+  const entity = state.entities.find((candidate) => candidate.id === entityId && candidate.hp > 0);
+  if (!entity) return { ok: false, state, reason: 'That unit is no longer on the board.' };
+  if (entity.owner !== side) return { ok: false, state, reason: 'You can only advance your own units.' };
+
+  const definition = UNIT_BY_ID[entity.definitionId];
+  if (!definition || definition.kind !== 'unit') {
+    return { ok: false, state, reason: 'Structures cannot advance.' };
+  }
+
+  if (state.players[side].mana + 1e-9 < manaCost) {
+    return { ok: false, state, reason: `Manual advance costs ${manaCost} mana.` };
+  }
+
+  const nextRow = entity.row + directionFor(side);
+  if (!isNormalBoardCell(nextRow, entity.col)) {
+    return { ok: false, state, reason: 'That unit cannot advance any farther.' };
+  }
+
+  if (entityAt(state, nextRow, entity.col)) {
+    return { ok: false, state, reason: 'The cell in front is occupied.' };
+  }
+
+  const territory = state.territory.map((territoryRow) => [...territoryRow]);
+  const territoryState = { ...state, territory };
+  if (canTerritoryFlipTo(territoryState, side, nextRow, entity.col)) {
+    territory[nextRow][entity.col] = side;
+  }
+
+  const entities = state.entities.map((candidate) => {
+    if (candidate.id !== entityId) return candidate;
+    return {
+      ...candidate,
+      row: nextRow,
+      chargePrimed: Boolean(definition.chargeBonus),
+      moveReadyAt: definition.advanceCooldownMs
+        ? state.timeMs + definition.advanceCooldownMs
+        : candidate.moveReadyAt,
+    };
+  });
+
+  let next: GameState = {
+    ...state,
+    territory,
+    entities,
+    players: {
+      ...state.players,
+      [side]: {
+        ...state.players[side],
+        mana: Math.max(0, state.players[side].mana - manaCost),
+      },
+    },
+  };
+
+  next = appendEvent(
+    next,
+    `${side === 'player' ? 'You' : 'Enemy'} spent ${manaCost} mana to advance ${definition.name} one cell.`,
+  );
+  return { ok: true, state: next };
+}
+
+function isPlayerHalfRow(row: number): boolean {
+  return row >= Math.floor(BOARD_ROWS / 2) && row < BOARD_ROWS;
+}
+
+function hasAdjacentOwnedTerritory(state: GameState, side: Side, row: number, col: number): boolean {
+  const neighbours = [
+    [row - 1, col],
+    [row + 1, col],
+    [row, col - 1],
+    [row, col + 1],
+  ];
+
+  return neighbours.some(([candidateRow, candidateCol]) =>
+    isNormalBoardCell(candidateRow, candidateCol) &&
+    state.territory[candidateRow][candidateCol] === side,
+  );
+}
+
+export function claimPlayerHalfCell(
+  state: GameState,
+  row: number,
+  col: number,
+): PlacementResult {
+  if (state.winner) return { ok: false, state, reason: 'The match is over.' };
+  if (!isNormalBoardCell(row, col) || !isPlayerHalfRow(row)) {
+    return { ok: false, state, reason: 'You can buy territory only in your half of the battlefield.' };
+  }
+  if (state.territory[row][col] === 'player') {
+    return { ok: false, state, reason: 'That cell is already yours.' };
+  }
+  if (entityAt(state, row, col)) {
+    return { ok: false, state, reason: 'The cell must be empty before you can claim it.' };
+  }
+
+  const connected = hasAdjacentOwnedTerritory(state, 'player', row, col);
+  const manaCost = connected ? 1 : 2;
+  if (state.players.player.mana + 1e-9 < manaCost) {
+    return {
+      ok: false,
+      state,
+      reason: connected
+        ? 'Claiming this connected cell costs 1 mana.'
+        : 'Claiming this isolated cell costs 2 mana.',
+    };
+  }
+
+  const territory = state.territory.map((territoryRow) => [...territoryRow]);
+  territory[row][col] = 'player';
+
+  let next: GameState = {
+    ...state,
+    territory,
+    players: {
+      ...state.players,
+      player: {
+        ...state.players.player,
+        mana: Math.max(0, state.players.player.mana - manaCost),
+      },
+    },
+  };
+
+  next = appendEvent(
+    next,
+    `You spent ${manaCost} mana to claim lane ${col + 1}, row ${row + 1}${connected ? ' from adjacent territory' : ' as isolated territory'}.`,
+  );
+  return { ok: true, state: next };
+}
+
 export function placeEntity(
   state: GameState,
   side: Side,
