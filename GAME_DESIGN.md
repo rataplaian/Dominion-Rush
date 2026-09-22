@@ -160,7 +160,7 @@ Additional coded cards: Crossbow, Siege Ram, Ballista, Bombardier.
 
 ## AI
 
-The MVP bot:
+The single-player AI:
 - obeys mana;
 - uses only its current 4-card hand;
 - deploys only on legal controlled territory;
@@ -168,7 +168,7 @@ The MVP bot:
 - gives extra weight to defensive structures in threatened lanes and advancing units when pressure opportunities exist;
 - uses deterministic seeded randomness among its highest-scoring choices.
 
-It is intentionally an offline opponent, not a production competitive AI.
+Difficulty changes decision speed and choice quality while keeping the same mana, Core HP and card rules as the player. The AI does not receive hidden economic or stat bonuses.
 
 ## Architecture
 
@@ -182,9 +182,6 @@ It is intentionally an offline opponent, not a production competitive AI.
 ## Not in MVP 1.0
 
 These are product-expansion systems, not blockers for the core game:
-- PvP networking/matchmaking;
-- accounts/cloud progression;
-- ranked ladder;
 - custom deck builder UI;
 - collection/unlocks;
 - cosmetics;
@@ -195,4 +192,15 @@ These are product-expansion systems, not blockers for the core game:
 - localization;
 - store publishing metadata.
 
-The MVP is deliberately focused on proving that **mana + placement + cooldown combat + territory conquest** is fun before adding live-service complexity.
+## Single-player product direction
+
+Dominion Rush is designed as an offline-first single-player game. Future work prioritizes:
+- campaign structure and authored missions;
+- AI archetypes and boss encounters;
+- deck building, unlocks and progression;
+- challenge modifiers and replayability;
+- final presentation, audio and tutorialization.
+
+PvP, matchmaking, ranked ladders and multiplayer server infrastructure are intentionally excluded.
+
+The MVP is deliberately focused on proving that **mana + placement + cooldown combat + territory conquest** is fun before expanding the single-player content.
