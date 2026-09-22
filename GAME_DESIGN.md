@@ -1,16 +1,18 @@
-# Dominion Rush — Core Design Notes
+# Dominion Rush — Game Design Baseline 1.0
 
-## Pillar
+## Core idea
 
-A real-time tactical game where **placement is the primary player action** and units execute combat through independent cooldowns.
+Dominion Rush is a real-time tactical grid game where **placement replaces direct movement control**.
 
-The intended decision loop is:
+The decision loop is:
 
-**mana → card → cell → formation → timing → automatic combat → territory**
+**mana → hand → card → cell → formation → cooldown combat → territory → Core pressure**
 
-## Board
+The board remains readable like a turn-based tactics game, but time never stops.
 
-The permanent board is **5 columns × 6 rows**.
+## Battlefield
+
+Permanent board: **5 columns × 6 rows**.
 
 ```text
 ENEMY CORE
@@ -26,128 +28,171 @@ row 5  [ ][ ][ ][ ][ ]   protected player home row
 PLAYER CORE
 ```
 
-Every entity occupies exactly one cell. There is no free movement.
+One entity occupies one cell. No free movement/pathfinding exists.
 
 ## Mana
 
-- Both sides start at **3 mana**.
-- Maximum stored mana: **10**.
-- Prototype regeneration: **0.5 mana/s** (1 mana every 2 seconds).
-- Territory ownership currently has **no effect on mana generation**.
+- Start: **3**
+- Maximum: **10**
+- Regulation: **0.5 mana/sec**
+- Overtime: **1 mana/sec**
+- Territory does **not** currently modify mana income.
 
-## Deployment rules
+## Cards
 
-Deployment depends on both **territory ownership** and the card's own placement rule.
+MVP uses:
+- fixed **8-card deck**;
+- **4-card hand**;
+- after a card is deployed, it rotates out and the next card enters that hand slot;
+- both player and AI obey the same card availability rule.
 
-Current prototype defaults:
+Future deck building can select any 8 legal cards from the larger collection.
 
-- Melee units: can deploy on controlled cells, but **not on the protected row closest to their own Core**.
-- Ranged units: can deploy on **any controlled cell** unless a future card specifies an exception.
-- Structures: currently can deploy on any controlled cell.
-- Emergency reinforcement cells override normal placement-band restrictions.
+## Deployment
 
-These are data-driven card rules, so individual units can later have exceptions.
+Deployment requires:
+1. enough mana;
+2. card present in the current hand;
+3. empty cell;
+4. territory controlled by the deploying player.
 
-## Combat direction
+Default restrictions:
+- melee: cannot normally deploy on the protected home row;
+- ranged: any controlled cell;
+- structures: any controlled cell;
+- active emergency cells override the home-row restriction.
 
-The normal rule is that attacks resolve **along the same vertical column / direction of advance**.
+Individual future cards may override these defaults.
 
-- Melee: only the frontmost friendly melee can attack, and only the immediately adjacent forward cell.
-- Ranged: targets the nearest valid enemy ahead in the same column, within range.
-- Splash / special abilities may explicitly break the same-column rule.
+## Combat
 
-## Movement philosophy
+Default attack direction is the unit's **vertical lane**.
 
-Movement is an ability/property, not a universal command.
+### Melee
+- must be the frontmost friendly entity in the lane;
+- attacks only the immediately adjacent enemy ahead;
+- cannot attack through allies.
 
-Examples:
+### Ranged
+- attacks the nearest enemy ahead in the lane, within range;
+- friendly units do not block shots in MVP;
+- if no enemy blocks the lane and the Core is in range, it can attack the Core.
 
-- Advance: move forward one cell every X seconds if free.
-- Charge: advance and prime bonus damage.
-- Breakthrough: move into the defeated enemy's cell after a kill.
-- Push: force an enemy backward one cell if free.
-- Pull: move an enemy toward the attacker.
-- Leap: pass over an occupied cell.
-- Swap: exchange positions with an allied unit.
-- Retreat: automatically step backward below an HP threshold.
-- Teleport: relocate according to specific targeting rules.
+### Splash
+Splash is an explicit exception: Pyromancer/Bombardier-style attacks may damage units in adjacent columns around the primary target.
 
-## Territory conquest
+## Movement
 
-Territory is tracked independently from unit occupancy.
+Movement exists only through card abilities.
 
-When an advancing unit enters a cell controlled by the opponent:
+Current implemented pattern:
+- **Advance:** after X seconds, move one cell toward the enemy if free.
+- **Charge:** advancing primes bonus damage for the next melee hit.
 
-1. the entered cell becomes controlled by the advancing side;
-2. the defender can no longer deploy there;
-3. the attacker can use that cell as forward deployment territory if it is empty;
-4. ownership persists even if the capturing unit later dies;
-5. ownership can later flip back through reconquest.
+Future legal patterns:
+- breakthrough;
+- push;
+- pull;
+- leap;
+- swap;
+- retreat;
+- teleport.
+
+## Territory
+
+Territory ownership and unit occupancy are separate.
+
+When an advancing unit enters conquerable enemy territory:
+1. ownership flips immediately;
+2. the defender loses that deployment cell;
+3. the attacker may later deploy there if the cell becomes empty;
+4. territory remains captured after the capturing unit dies;
+5. reconquest can flip it back.
 
 ### Protected final row
 
-The row directly beside each Core is **never conquerable**.
+Rows 0 and 5 never change ownership. An invader may occupy them and attack the Core, but cannot convert them into deployment territory.
 
-An enemy unit may physically enter that row, occupy it and threaten the Core, but the territory itself remains owned by the defender.
+## Emergency reinforcement
 
-## Emergency reinforcement cell
+When both conquerable cells of one defender lane are captured, a temporary emergency cell opens **behind that defender's protected row in the same column**.
 
-Prototype interpretation of the current design:
+It:
+- exists outside the 5×6 board;
+- accepts one defender unit;
+- overrides normal home-row deployment restrictions;
+- provides one last counterplay window against a full lane breach.
 
-If an attacker captures **both conquerable cells in one defender lane/column**, that lane is considered fully breached.
+## Match format
 
-A temporary emergency cell appears **behind the defender's protected home row in the same column**. The defender can deploy one unit there even if that unit would normally be barred from the home row.
+### Regulation
+**3:00**
 
-This creates a last counterplay opportunity while preserving the strong reward for territorial pressure.
+If a Core is destroyed: immediate win.
 
-The emergency cell is outside the permanent 5×6 board and exists only for a breached lane (or while a unit already occupies it).
+At 3:00:
+- higher Core HP wins;
+- equal Core HP triggers overtime.
 
-## Main balance levers
+### Overtime
+**1:00**
+- mana regeneration doubles.
 
-Every card can be balanced mostly through data:
+At overtime end:
+1. higher Core HP wins;
+2. if tied, more controlled cells wins;
+3. if still tied, match is a draw.
 
-- mana cost;
-- HP;
-- attack damage;
-- attack cooldown;
-- range;
-- deployment rule;
-- movement cooldown;
-- charge multiplier;
-- splash multiplier;
-- entity type: unit / structure.
+## MVP starter deck
 
-## Prototype 0.2 status
+| Card | Mana | Role |
+|---|---:|---|
+| Guardian | 2 | stationary melee tank |
+| Legionnaire | 3 | advancing melee |
+| Knight | 5 | fast charge invader |
+| Archer | 3 | fast ranged |
+| Pyromancer | 5 | splash ranged |
+| Spearman | 3 | short-range support |
+| Arrow Tower | 4 | ranged structure |
+| Barricade | 2 | blocker |
 
-Implemented:
+Additional coded cards: Crossbow, Siege Ram, Ballista, Bombardier.
 
-- 5×6 board;
-- 3 starting mana / 10 maximum;
-- real-time mana regeneration;
-- units and structures;
-- automatic attack cooldowns;
-- melee frontline restrictions;
-- ranged same-column attacks;
-- movement-by-cell abilities;
-- dynamic territorial ownership;
-- forward deployment on captured territory;
-- protected final rows;
-- emergency reinforcement slots;
-- simple deterministic bot;
-- Core HP / victory condition;
-- battle log;
-- automated engine tests.
+## AI
 
-## Open design questions
+The MVP bot:
+- obeys mana;
+- uses only its current 4-card hand;
+- deploys only on legal controlled territory;
+- prioritizes lanes under pressure;
+- gives extra weight to defensive structures in threatened lanes and advancing units when pressure opportunities exist;
+- uses deterministic seeded randomness among its highest-scoring choices.
 
-- Fixed deck size: 8? 10?
-- Full deck visible or rotating hand?
-- Match duration and overtime.
-- Exact mana regeneration speed after playtesting.
-- Should every captured cell allow forward summoning, or only connected territory?
-- Should structures have stricter deployment limits?
-- Should territory slowly revert when undefended?
-- Should an emergency cell disappear immediately after reconquest or remain until its occupant dies? Prototype: existing occupant keeps it visible.
-- Should ranged attacks be blocked by friendly units? Prototype: no.
-- Which special attacks may cross columns?
-- Core-only win condition vs additional objectives.
+It is intentionally an offline opponent, not a production competitive AI.
+
+## Architecture
+
+- React Native + Expo + TypeScript.
+- Pure deterministic game engine separated from UI.
+- Engine state is serializable and suitable for future replay/network synchronization.
+- No free-space physics or pathfinding.
+- Automated tests cover gameplay rules.
+- GitHub Actions validates engine and UI types.
+
+## Not in MVP 1.0
+
+These are product-expansion systems, not blockers for the core game:
+- PvP networking/matchmaking;
+- accounts/cloud progression;
+- ranked ladder;
+- custom deck builder UI;
+- collection/unlocks;
+- cosmetics;
+- sound/VFX/final art;
+- tutorial campaign;
+- monetization;
+- analytics;
+- localization;
+- store publishing metadata.
+
+The MVP is deliberately focused on proving that **mana + placement + cooldown combat + territory conquest** is fun before adding live-service complexity.
