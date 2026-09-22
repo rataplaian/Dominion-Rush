@@ -1,6 +1,7 @@
 import {
   BOARD_COLS,
   BOARD_ROWS,
+  AiDifficulty,
   CardCycleState,
   Entity,
   GameConfig,
@@ -13,18 +14,30 @@ import {
 import { nextRandom } from './rng';
 import { STARTER_DECK, UNIT_BY_ID } from './units';
 
-export const DEFAULT_CONFIG: GameConfig = {
-  startingMana: 3,
-  maxMana: 10,
-  manaPerSecond: 0.5,
-  overtimeManaPerSecond: 1,
-  coreHp: 2500,
-  enemyThinkEveryMs: 850,
-  regulationMs: 180_000,
-  overtimeMs: 60_000,
-  deckSize: 8,
-  handSize: 4,
-};
+export function createGameConfig(difficulty: AiDifficulty = 'normal'): GameConfig {
+  const ai = {
+    easy: { enemyThinkEveryMs: 1300, aiTopChoices: 8 },
+    normal: { enemyThinkEveryMs: 850, aiTopChoices: 4 },
+    hard: { enemyThinkEveryMs: 550, aiTopChoices: 2 },
+  }[difficulty];
+
+  return {
+    startingMana: 3,
+    maxMana: 10,
+    manaPerSecond: 0.5,
+    overtimeManaPerSecond: 1,
+    coreHp: 2500,
+    enemyThinkEveryMs: ai.enemyThinkEveryMs,
+    regulationMs: 180_000,
+    overtimeMs: 60_000,
+    deckSize: 8,
+    handSize: 4,
+    aiDifficulty: difficulty,
+    aiTopChoices: ai.aiTopChoices,
+  };
+}
+
+export const DEFAULT_CONFIG: GameConfig = createGameConfig('normal');
 
 const directionFor = (side: Side) => (side === 'player' ? -1 : 1);
 const enemyOf = (side: Side): Side => (side === 'player' ? 'enemy' : 'player');
@@ -516,7 +529,7 @@ function runEnemyBot(state: GameState, config: GameConfig): GameState {
   if (legalPairs.length === 0) return next;
 
   legalPairs.sort((a, b) => b.score - a.score);
-  const topCount = Math.min(4, legalPairs.length);
+  const topCount = Math.min(config.aiTopChoices, legalPairs.length);
   const roll = nextRandom(next.rngState);
   next = { ...next, rngState: roll.seed };
   const choice = legalPairs[Math.floor(roll.value * topCount) % topCount];
