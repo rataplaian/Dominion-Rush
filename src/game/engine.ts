@@ -8,6 +8,7 @@ import {
   GameState,
   PlacementResult,
   Side,
+  TerritoryOwner,
   UnitDefinition,
   Winner,
 } from './types';
@@ -66,9 +67,13 @@ function rotateUsedCard(cards: CardCycleState, definitionId: string): CardCycleS
   };
 }
 
-export function createInitialTerritory(): Side[][] {
+export function createInitialTerritory(): TerritoryOwner[][] {
   return Array.from({ length: BOARD_ROWS }, (_, row) =>
-    Array.from({ length: BOARD_COLS }, () => (row <= 2 ? 'enemy' : 'player') as Side),
+    Array.from({ length: BOARD_COLS }, () => {
+      if (row <= 1) return 'enemy' as TerritoryOwner;
+      if (row >= 4) return 'player' as TerritoryOwner;
+      return 'neutral' as TerritoryOwner;
+    }),
   );
 }
 
@@ -121,7 +126,7 @@ export function getEmergencyRow(side: Side): number {
   return side === 'player' ? BOARD_ROWS : -1;
 }
 
-export function territoryOwnerAt(state: GameState, row: number, col: number): Side | null {
+export function territoryOwnerAt(state: GameState, row: number, col: number): TerritoryOwner | null {
   if (!isNormalBoardCell(row, col)) return null;
   return state.territory[row][col];
 }
@@ -188,7 +193,7 @@ export function canDeployDefinitionAt(
 
   if (!isNormalBoardCell(row, col)) return { ok: false, reason: 'Outside the board.' };
   if (territoryOwnerAt(state, row, col) !== side) {
-    return { ok: false, reason: 'You can deploy only on territory you currently control.' };
+    return { ok: false, reason: 'You can deploy only on territory you control. Neutral center cells must be conquered first.' };
   }
   if (entityAt(state, row, col)) return { ok: false, reason: 'That cell is occupied.' };
 
@@ -406,7 +411,7 @@ function canTerritoryFlipTo(state: GameState, owner: Side, row: number, col: num
   if (!isNormalBoardCell(row, col)) return false;
   const currentOwner = state.territory[row][col];
   if (currentOwner === owner) return false;
-  if (isProtectedHomeRow(currentOwner, row)) return false;
+  if (currentOwner !== 'neutral' && isProtectedHomeRow(currentOwner, row)) return false;
   return true;
 }
 
