@@ -1,27 +1,30 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { STARTER_DECK, UNIT_BY_ID } from '../game';
+import { UNIT_BY_ID } from '../game';
 
 interface CardBarProps {
+  cardIds: string[];
   mana: number;
   selectedCardId: string;
   onSelect: (id: string) => void;
 }
 
-export function CardBar({ mana, selectedCardId, onSelect }: CardBarProps) {
+export function CardBar({ cardIds, mana, selectedCardId, onSelect }: CardBarProps) {
   return (
     <View>
-      <Text style={styles.label}>DEPLOY</Text>
+      <Text style={styles.label}>HAND</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {STARTER_DECK.map((id) => {
+        {cardIds.map((id, index) => {
           const definition = UNIT_BY_ID[id];
+          if (!definition) return null;
           const selected = selectedCardId === id;
           const affordable = mana + 1e-9 >= definition.manaCost;
+
           return (
             <Pressable
-              key={id}
+              key={`${id}-${index}`}
               accessibilityRole="button"
-              accessibilityState={{ selected, disabled: !affordable }}
+              accessibilityState={{ selected }}
               onPress={() => onSelect(id)}
               style={({ pressed }) => [
                 styles.card,
@@ -56,7 +59,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selected: { borderColor: '#6fb6df', borderWidth: 2, backgroundColor: '#1d3143' },
-  unaffordable: { opacity: 0.45 },
+  unaffordable: { opacity: 0.48 },
   pressed: { transform: [{ scale: 0.98 }] },
   icon: { fontSize: 22 },
   name: { color: '#f6f8fc', fontWeight: '800', fontSize: 11 },
