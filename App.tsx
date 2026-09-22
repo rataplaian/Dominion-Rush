@@ -44,7 +44,8 @@ function formatClock(ms: number): string {
 
 export default function App() {
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal');
-  const [preset, setPreset] = useState<SkirmishPresetId>('balanced');
+  const [playerPreset, setPlayerPreset] = useState<SkirmishPresetId>('balanced');
+  const [enemyPreset, setEnemyPreset] = useState<SkirmishPresetId>('balanced');
   const config = useMemo(() => createGameConfig(difficulty), [difficulty]);
   const [state, setState] = useState<GameState>(() => createInitialState(1337, createGameConfig('normal'), [...SKIRMISH_PRESETS.balanced.deck], [...SKIRMISH_PRESETS.balanced.deck]));
   const [selectedCardId, setSelectedCardId] = useState(() => createInitialState().players.player.cards.hand[0]);
@@ -80,24 +81,34 @@ export default function App() {
     setMessage(`${selected.name} deployed. Next card drawn automatically.`);
   };
 
-  const reset = (level: AiDifficulty = difficulty, nextPreset: SkirmishPresetId = preset) => {
+  const reset = (
+    level: AiDifficulty = difficulty,
+    nextPlayerPreset: SkirmishPresetId = playerPreset,
+    nextEnemyPreset: SkirmishPresetId = enemyPreset,
+  ) => {
     const nextConfig = createGameConfig(level);
-    const deck = [...SKIRMISH_PRESETS[nextPreset].deck];
-    const fresh = createInitialState(Date.now() | 0, nextConfig, deck, deck);
+    const playerDeck = [...SKIRMISH_PRESETS[nextPlayerPreset].deck];
+    const enemyDeck = [...SKIRMISH_PRESETS[nextEnemyPreset].deck];
+    const fresh = createInitialState(Date.now() | 0, nextConfig, playerDeck, enemyDeck);
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
     setPaused(false);
-    setMessage(`New ${level} ${SKIRMISH_PRESETS[nextPreset].name} skirmish. Control territory, pressure lanes and destroy the enemy Core.`);
+    setMessage(`New ${level} skirmish: ${SKIRMISH_PRESETS[nextPlayerPreset].name} vs ${SKIRMISH_PRESETS[nextEnemyPreset].name}.`);
   };
 
   const changeDifficulty = (level: AiDifficulty) => {
     setDifficulty(level);
-    reset(level, preset);
+    reset(level, playerPreset, enemyPreset);
   };
 
-  const changePreset = (nextPreset: SkirmishPresetId) => {
-    setPreset(nextPreset);
-    reset(difficulty, nextPreset);
+  const changePlayerPreset = (nextPreset: SkirmishPresetId) => {
+    setPlayerPreset(nextPreset);
+    reset(difficulty, nextPreset, enemyPreset);
+  };
+
+  const changeEnemyPreset = (nextPreset: SkirmishPresetId) => {
+    setEnemyPreset(nextPreset);
+    reset(difficulty, playerPreset, nextPreset);
   };
 
   const resultTitle =
@@ -137,23 +148,41 @@ export default function App() {
         </View>
 
         <View style={styles.presetSection}>
-          <Text style={styles.presetLabel}>SKIRMISH DECK</Text>
+          <Text style={styles.presetLabel}>YOUR DECK</Text>
           <View style={styles.presetRow}>
             {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
               <TouchableOpacity
-                key={id}
+                key={`player-${id}`}
                 accessibilityRole="button"
-                accessibilityState={{ selected: preset === id }}
-                onPress={() => changePreset(id)}
-                style={[styles.presetButton, preset === id ? styles.presetSelected : null]}
+                accessibilityState={{ selected: playerPreset === id }}
+                onPress={() => changePlayerPreset(id)}
+                style={[styles.presetButton, playerPreset === id ? styles.presetSelected : null]}
               >
-                <Text style={[styles.presetText, preset === id ? styles.presetTextSelected : null]}>
+                <Text style={[styles.presetText, playerPreset === id ? styles.presetTextSelected : null]}>
                   {SKIRMISH_PRESETS[id].name.toUpperCase()}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[preset].description}</Text>
+          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[playerPreset].description}</Text>
+
+          <Text style={[styles.presetLabel, styles.enemyPresetLabel]}>ENEMY DECK</Text>
+          <View style={styles.presetRow}>
+            {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
+              <TouchableOpacity
+                key={`enemy-${id}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: enemyPreset === id }}
+                onPress={() => changeEnemyPreset(id)}
+                style={[styles.presetButton, enemyPreset === id ? styles.enemyPresetSelected : null]}
+              >
+                <Text style={[styles.presetText, enemyPreset === id ? styles.presetTextSelected : null]}>
+                  {SKIRMISH_PRESETS[id].name.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[enemyPreset].description}</Text>
         </View>
 
         <View style={styles.phaseBanner}>
@@ -252,10 +281,12 @@ const styles = StyleSheet.create({
   presetLabel: { color: '#9eacc3', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   presetRow: { flexDirection: 'row', gap: 8 },
   presetButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
-  presetSelected: { borderColor: '#c6a8ff', backgroundColor: '#2a2340' },
+  presetSelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
+  enemyPresetSelected: { borderColor: '#d48aa3', backgroundColor: '#38202a' },
   presetText: { color: '#7f8da5', fontSize: 9, fontWeight: '900', letterSpacing: 0.6 },
   presetTextSelected: { color: '#f5efff' },
   presetDescription: { color: '#6f7e94', fontSize: 9 },
+  enemyPresetLabel: { marginTop: 4 },
   difficultyRow: { flexDirection: 'row', gap: 8 },
   difficultyButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
   difficultySelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
