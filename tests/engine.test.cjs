@@ -72,6 +72,15 @@ function deploy(state, side, id, row, col) {
   return result.state;
 }
 
+function withCenterFrontlines(state) {
+  const territory = state.territory.map((row) => [...row]);
+  for (let col = 0; col < territory[0].length; col += 1) {
+    territory[2][col] = 'enemy';
+    territory[3][col] = 'player';
+  }
+  return { ...state, territory };
+}
+
 test('all skirmish presets contain 8 valid unique cards', () => {
   for (const preset of Object.values(SKIRMISH_PRESETS)) {
     assert.equal(preset.deck.length, 8);
@@ -98,7 +107,7 @@ test('AI difficulty profiles change decision speed without changing player econo
   }
 });
 
-test('initial state has regulation, 3 mana, full cores and 4-card hands', () => {
+test('initial state has regulation, 3 mana, full cores, 4-card hands and neutral center rows', () => {
   const state = createInitialState(1);
   assert.equal(state.phase, 'regulation');
   assert.equal(state.players.player.mana, 3);
@@ -106,6 +115,10 @@ test('initial state has regulation, 3 mana, full cores and 4-card hands', () => 
   assert.equal(state.players.player.coreHp, 2500);
   assert.equal(state.players.player.cards.hand.length, 4);
   assert.equal(state.players.player.cards.deck.length, 8);
+  assert.equal(territoryOwnerAt(state, 1, 0), 'enemy');
+  assert.equal(territoryOwnerAt(state, 2, 0), 'neutral');
+  assert.equal(territoryOwnerAt(state, 3, 0), 'neutral');
+  assert.equal(territoryOwnerAt(state, 4, 0), 'player');
 });
 
 test('playing a card spends mana and rotates the hand', () => {
@@ -113,7 +126,7 @@ test('playing a card spends mana and rotates the hand', () => {
   const used = state.players.player.cards.hand[0];
   const expectedDraw = state.players.player.cards.deck[4];
   const cost = UNIT_BY_ID[used].manaCost;
-  const result = placeEntity(withMana(state, 'player'), 'player', used, 3, 1);
+  const result = placeEntity(withMana(state, 'player'), 'player', used, 4, 1);
   assert.equal(result.ok, true);
   assert.equal(result.state.players.player.mana, 10 - cost);
   assert.equal(result.state.players.player.cards.hand[0], expectedDraw);
@@ -122,16 +135,25 @@ test('playing a card spends mana and rotates the hand', () => {
 
 test('a card outside the current hand cannot be played', () => {
   const state = withMana(createInitialState(3), 'player');
-  const result = placeEntity(state, 'player', 'barricade', 3, 0);
+  const result = placeEntity(state, 'player', 'barricade', 4, 0);
   assert.equal(result.ok, false);
   assert.match(result.reason, /not currently in your hand/);
 });
 
-test('player cannot deploy into enemy-controlled starting territory', () => {
+test('player cannot deploy into the neutral center before conquest', () => {
   let state = createInitialState(4);
   state = withMana(state, 'player');
   const id = state.players.player.cards.hand[0];
-  const result = placeEntity(state, 'player', id, 2, 1);
+  const result = placeEntity(state, 'player', id, 3, 1);
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /Neutral center cells must be conquered first/);
+});
+
+test('player cannot deploy into enemy-controlled starting territory', () => {
+  let state = createInitialState(41);
+  state = withMana(state, 'player');
+  const id = state.players.player.cards.hand[0];
+  const result = placeEntity(state, 'player', id, 1, 1);
   assert.equal(result.ok, false);
 });
 
@@ -174,7 +196,7 @@ test('ranged units may deploy on the protected home row', () => {
 });
 
 test('frontline melee units attack each other across the center border', () => {
-  let state = createInitialState(9);
+  let state = withCenterFrontlines(createInitialState(9));
   state = deploy(state, 'player', 'guardian', 3, 2);
   state = deploy(state, 'enemy', 'guardian', 2, 2);
   state = advance(state, 300);
@@ -183,7 +205,7 @@ test('frontline melee units attack each other across the center border', () => {
 });
 
 test('a melee unit behind a friendly blocker cannot attack through it', () => {
-  let state = createInitialState(10);
+  let state = withCenterFrontlines(createInitialState(10));
   state = deploy(state, 'player', 'guardian', 4, 0);
   state = deploy(state, 'player', 'barricade', 3, 0);
   state = deploy(state, 'enemy', 'guardian', 2, 0);
@@ -193,7 +215,7 @@ test('a melee unit behind a friendly blocker cannot attack through it', () => {
 });
 
 test('ranged units can fire from behind the frontline', () => {
-  let state = createInitialState(11);
+  let state = withCenterFrontlines(createInitialState(11));
   state = deploy(state, 'player', 'barricade', 3, 3);
   state = deploy(state, 'player', 'archer', 4, 3);
   state = deploy(state, 'enemy', 'guardian', 2, 3);
@@ -203,46 +225,51 @@ test('ranged units can fire from behind the frontline', () => {
 
 test('advancing units move forward and capture enemy territory', () => {
   let state = createInitialState(12);
-  state = deploy(state, 'player', 'legionnaire', 3, 4);
+  state = deploy(state, 'player', 'legionnaire', 4, 4);
   state = advance(state, 8000);
   const unit = state.entities.find((e) => e.definitionId === 'legionnaire');
-  assert.equal(unit.row, 2);
-  assert.equal(territoryOwnerAt(state, 2, 4), 'player');
+  assert.equal(unit.row, 3);
+  assert.equal(territoryOwnerAt(state, 3, 4), 'player');
 });
 
 test('advance is blocked by an occupied cell', () => {
   let state = createInitialState(13);
-  state = deploy(state, 'player', 'legionnaire', 3, 1);
-  state = deploy(state, 'enemy', 'barricade', 2, 1);
+  state = {
+    ...state,
+    territory: state.territory.map((row) => [...row]),
+  };
+  state.territory[3][1] = 'enemy';
+  state = deploy(state, 'player', 'legionnaire', 4, 1);
+  state = deploy(state, 'enemy', 'barricade', 3, 1);
   state = advance(state, 8000);
-  assert.equal(state.entities.find((e) => e.definitionId === 'legionnaire').row, 3);
+  assert.equal(state.entities.find((e) => e.definitionId === 'legionnaire').row, 4);
 });
 
 test('captured territory persists after the capturing unit is removed', () => {
   let state = createInitialState(14);
-  state = deploy(state, 'player', 'legionnaire', 3, 1);
+  state = deploy(state, 'player', 'legionnaire', 4, 1);
   state = advance(state, 8000);
   const id = state.entities.find((e) => e.definitionId === 'legionnaire').id;
   state = { ...state, entities: state.entities.filter((e) => e.id !== id) };
-  assert.equal(territoryOwnerAt(state, 2, 1), 'player');
+  assert.equal(territoryOwnerAt(state, 3, 1), 'player');
 });
 
 test('captured territory becomes a legal deployment cell for its new owner', () => {
   let state = createInitialState(15);
-  state = deploy(state, 'player', 'legionnaire', 3, 4);
+  state = deploy(state, 'player', 'legionnaire', 4, 4);
   state = advance(state, 8000);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
   state = { ...state, entities: state.entities.filter((e) => e.id !== invader.id) };
   state = withMana(state, 'player');
   state = withCard(state, 'player', 'archer');
-  const result = placeEntity(state, 'player', 'archer', 2, 4);
+  const result = placeEntity(state, 'player', 'archer', 3, 4);
   assert.equal(result.ok, true);
 });
 
 test('protected final home row never changes territory owner', () => {
   let state = createInitialState(16);
-  state = deploy(state, 'player', 'legionnaire', 3, 3);
-  state = advance(state, 24000);
+  state = deploy(state, 'player', 'legionnaire', 4, 3);
+  state = advance(state, 32000);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
   assert.equal(invader.row, 0);
   assert.equal(territoryOwnerAt(state, 0, 3), 'enemy');
@@ -250,8 +277,8 @@ test('protected final home row never changes territory owner', () => {
 
 test('fully breaching a lane opens the defender emergency slot', () => {
   let state = createInitialState(17);
-  state = deploy(state, 'player', 'legionnaire', 3, 0);
-  state = advance(state, 16000);
+  state = deploy(state, 'player', 'legionnaire', 4, 0);
+  state = advance(state, 24000);
   assert.equal(territoryOwnerAt(state, 2, 0), 'player');
   assert.equal(territoryOwnerAt(state, 1, 0), 'player');
   assert.equal(isEmergencyCellActive(state, 'enemy', 0), true);
@@ -260,8 +287,8 @@ test('fully breaching a lane opens the defender emergency slot', () => {
 
 test('defender can deploy melee into an active emergency slot', () => {
   let state = createInitialState(18);
-  state = deploy(state, 'player', 'legionnaire', 3, 2);
-  state = advance(state, 16000);
+  state = deploy(state, 'player', 'legionnaire', 4, 2);
+  state = advance(state, 24000);
   state = withMana(state, 'enemy');
   state = withCard(state, 'enemy', 'guardian');
   const result = placeEntity(state, 'enemy', 'guardian', -1, 2);
@@ -272,23 +299,23 @@ test('defender can deploy melee into an active emergency slot', () => {
 test('splash attacks damage enemies in adjacent columns', () => {
   let state = createInitialState(19);
   state = deploy(state, 'player', 'pyromancer', 5, 2);
-  state = deploy(state, 'enemy', 'guardian', 2, 2);
-  state = deploy(state, 'enemy', 'guardian', 2, 1);
+  state = deploy(state, 'enemy', 'guardian', 1, 2);
+  state = deploy(state, 'enemy', 'guardian', 1, 1);
   state = advance(state, 300);
-  assert.equal(entityAt(state, 2, 2).hp, UNIT_BY_ID.guardian.maxHp - UNIT_BY_ID.pyromancer.attackDamage);
-  assert.equal(entityAt(state, 2, 1).hp, UNIT_BY_ID.guardian.maxHp - UNIT_BY_ID.pyromancer.attackDamage * 0.5);
+  assert.equal(entityAt(state, 1, 2).hp, UNIT_BY_ID.guardian.maxHp - UNIT_BY_ID.pyromancer.attackDamage);
+  assert.equal(entityAt(state, 1, 1).hp, UNIT_BY_ID.guardian.maxHp - UNIT_BY_ID.pyromancer.attackDamage * 0.5);
 });
 
 test('long-range artillery can damage a clear enemy Core', () => {
   let state = createInitialState(20);
-  state = deploy(state, 'player', 'ballista', 3, 2);
+  state = deploy(state, 'player', 'ballista', 5, 2);
   state = advance(state, 300);
   assert.equal(state.players.enemy.coreHp, DEFAULT_CONFIG.coreHp - UNIT_BY_ID.ballista.attackDamage);
 });
 
 test('destroying a Core ends the match immediately', () => {
   let state = createInitialState(21);
-  state = deploy(state, 'player', 'ballista', 3, 0);
+  state = deploy(state, 'player', 'ballista', 5, 0);
   state = {
     ...state,
     players: {
@@ -342,7 +369,7 @@ test('overtime tie on Core HP is resolved by territory control', () => {
     territory: state.territory.map((row) => [...row]),
   };
   state.territory[2][0] = 'player';
-  assert.equal(territoryCount(state, 'player'), 16);
+  assert.equal(territoryCount(state, 'player'), 11);
   state = advance(state, 100);
   assert.equal(state.winner, 'player');
 });
