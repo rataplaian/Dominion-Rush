@@ -18,11 +18,11 @@ Permanent board: **5 columns × 6 rows**.
 ENEMY CORE
 
 row 0  [ ][ ][ ][ ][ ]   protected enemy home row
-row 1  [ ][ ][ ][ ][ ]   conquerable enemy territory
-row 2  [ ][ ][ ][ ][ ]   conquerable enemy frontline
+row 1  [ ][ ][ ][ ][ ]   enemy starting territory
+row 2  [ ][ ][ ][ ][ ]   NEUTRAL — locked until conquered
        -----------------
-row 3  [ ][ ][ ][ ][ ]   conquerable player frontline
-row 4  [ ][ ][ ][ ][ ]   conquerable player territory
+row 3  [ ][ ][ ][ ][ ]   NEUTRAL — locked until conquered
+row 4  [ ][ ][ ][ ][ ]   player starting territory
 row 5  [ ][ ][ ][ ][ ]   protected player home row
 
 PLAYER CORE
@@ -55,6 +55,8 @@ Deployment requires:
 2. card present in the current hand;
 3. empty cell;
 4. territory controlled by the deploying player.
+
+The two middle rows (2 and 3) begin **neutral**. Neither side can deploy there at match start. A neutral cell becomes deployable only after an advancing unit physically enters it and captures it.
 
 Default restrictions:
 - melee: cannot normally deploy on the protected home row;
@@ -142,6 +144,20 @@ At overtime end:
 1. higher Core HP wins;
 2. if tied, more controlled cells wins;
 3. if still tied, match is a draw.
+
+## Pre-match unit information
+
+The deck-selection screen exposes the full selected deck before PLAY. Every card shows its numerical combat profile and can be inspected for:
+- mana cost;
+- HP;
+- damage;
+- range in forward grid cells;
+- attack cooldown;
+- movement interval;
+- charge/splash/other special effect;
+- plain-language role description.
+
+The battlefield, timer, mana regeneration and AI remain frozen until the player presses **PLAY**.
 
 ## MVP starter deck
 
