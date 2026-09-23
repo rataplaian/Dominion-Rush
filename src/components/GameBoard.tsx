@@ -6,8 +6,6 @@ import {
   canDeployDefinitionAt,
   Entity,
   GameState,
-  getEmergencyRow,
-  isEmergencyCellActive,
   isProtectedHomeRow,
   territoryOwnerAt,
   UNIT_BY_ID,
@@ -87,7 +85,6 @@ function Cell({
   onCellPress,
   onEntityPress,
   interactionEnabled,
-  emergencySide,
 }: {
   state: GameState;
   row: number;
@@ -96,13 +93,11 @@ function Cell({
   onCellPress: (row: number, col: number) => void;
   onEntityPress?: (entity: Entity) => void;
   interactionEnabled: boolean;
-  emergencySide?: 'player' | 'enemy';
   key?: string;
 }) {
   const entity = entityAt(state, row, col);
   const definition = UNIT_BY_ID[selectedCardId];
-  const normalOwner = emergencySide ? emergencySide : territoryOwnerAt(state, row, col);
-  const activeEmergency = emergencySide ? isEmergencyCellActive(state, emergencySide, col) : false;
+  const normalOwner = territoryOwnerAt(state, row, col);
   const canAttemptDeploy = Boolean(
     interactionEnabled &&
     definition &&
@@ -110,40 +105,53 @@ function Cell({
     canDeployDefinitionAt(state, 'player', definition, row, col).ok,
   );
 
+  const repelReady = Boolean(
+    canAttemptDeploy &&
+    entity &&
+    entity.owner === 'enemy' &&
+    isProtectedHomeRow('player', row),
+  );
+
   const claimablePlayerHalfCell = Boolean(
     interactionEnabled &&
-    !emergencySide &&
     !entity &&
     row > Math.floor(BOARD_ROWS / 2) &&
     normalOwner !== 'player',
   );
 
-  const protectedRow = !emergencySide && (normalOwner === 'player' || normalOwner === 'enemy') ? isProtectedHomeRow(normalOwner, row) : false;
+  const protectedRow =
+    (normalOwner === 'player' || normalOwner === 'enemy')
+      ? isProtectedHomeRow(normalOwner, row)
+      : false;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${emergencySide ? 'Emergency ' : ''}row ${row + 1}, column ${col + 1}${entity ? `, ${UNIT_BY_ID[entity.definitionId].name}` : ', empty'}`}
+      accessibilityLabel={`row ${row + 1}, column ${col + 1}${entity ? `, ${UNIT_BY_ID[entity.definitionId].name}` : ', empty'}${repelReady ? ', repel deployment available' : ''}`}
       onPress={() => {
+        if (repelReady && interactionEnabled) {
+          onCellPress(row, col);
+          return;
+        }
         if (entity && onEntityPress) onEntityPress(entity);
         else if (interactionEnabled) onCellPress(row, col);
       }}
-      disabled={Boolean((emergencySide && !activeEmergency && !entity) || (!interactionEnabled && !entity))}
+      disabled={Boolean(!interactionEnabled && !entity)}
       style={({ pressed }) => [
         styles.cell,
-        emergencySide ? styles.emergencyCell : null,
         normalOwner === 'enemy' ? styles.enemyTerritory : normalOwner === 'player' ? styles.playerTerritory : styles.neutralTerritory,
         protectedRow ? styles.protectedHome : null,
-        emergencySide && !activeEmergency && !entity ? styles.inactiveEmergency : null,
         canAttemptDeploy ? styles.deployable : null,
+        repelReady ? styles.repelReady : null,
         claimablePlayerHalfCell ? styles.claimable : null,
         pressed ? styles.pressed : null,
       ]}
     >
       {entity ? (
-        <EntityToken entity={entity} timeMs={state.timeMs} />
-      ) : emergencySide && activeEmergency ? (
-        <Text style={styles.emergencyMark}>+</Text>
+        <View style={styles.entityCell}>
+          <EntityToken entity={entity} timeMs={state.timeMs} />
+          {repelReady ? <Text style={styles.repelMark}>DEPLOY ↥</Text> : null}
+        </View>
       ) : (
         <Text style={styles.cellDot}>·</Text>
       )}
@@ -178,56 +186,26 @@ export function GameBoard({
     normalRows.push(<View key={row} style={styles.row}>{cells}</View>);
   }
 
-  const renderEmergencyRow = (side: 'player' | 'enemy') => {
-    const row = getEmergencyRow(side);
-    const anyVisible = Array.from({ length: BOARD_COLS }, (_, col) =>
-      isEmergencyCellActive(state, side, col) || Boolean(entityAt(state, row, col)),
-    ).some(Boolean);
-    if (!anyVisible) return null;
-
-    return (
-      <View style={styles.emergencyWrap}>
-        <Text style={styles.emergencyLabel}>{side === 'player' ? 'YOUR EMERGENCY LINE' : 'ENEMY EMERGENCY LINE'}</Text>
-        <View style={styles.row}>
-          {Array.from({ length: BOARD_COLS }, (_, col) => (
-            <Cell
-              key={`em-${side}-${col}`}
-              state={state}
-              row={row}
-              col={col}
-              selectedCardId={selectedCardId}
-              onCellPress={onCellPress}
-              onEntityPress={onEntityPress}
-              interactionEnabled={interactionEnabled}
-              emergencySide={side}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={styles.wrapper}>
-      {renderEmergencyRow('enemy')}
       <View style={styles.sideLabelRow}>
         <Text style={styles.sideLabel}>DYNAMIC TERRITORY</Text>
-        <Text style={styles.hint}>your unit: +1 cell / 2 mana</Text>
+        <Text style={styles.hint}>glowing ↑ = free move ready</Text>
       </View>
       <View style={styles.board}>{normalRows}</View>
-      {renderEmergencyRow('player')}
       <View style={styles.legendRow}>
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
         <Text style={styles.legendText}>Cyan border = claimable territory</Text>
         <Text style={styles.legendText}>Claim = 1 mana connected · 2 isolated</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
-        <Text style={styles.legendText}>Gold border = protected</Text>
-        <Text style={styles.legendText}>Side ↑ = free move charge</Text>
+        <Text style={styles.legendText}>Gold border = protected home row</Text>
+        <Text style={styles.legendText}>DEPLOY ↥ = replace invader and push it back</Text>
       </View>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   wrapper: { width: '100%', maxWidth: 560, alignSelf: 'center' },
@@ -246,6 +224,9 @@ const styles = StyleSheet.create({
   playerTerritory: { backgroundColor: '#13263a' },
   neutralTerritory: { backgroundColor: '#242833' },
   protectedHome: { borderColor: '#b99b4c', borderWidth: 1.5 },
+  repelReady: { borderColor: '#ffe08a', borderWidth: 2, backgroundColor: '#3a3522' },
+  entityCell: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  repelMark: { position: 'absolute', bottom: 1, color: '#ffe08a', fontSize: 6, fontWeight: '900', textShadowColor: '#000', textShadowRadius: 2 },
   deployable: { backgroundColor: '#1d4260' },
   claimable: { borderColor: '#66d9e8', borderWidth: 2 },
   pressed: { opacity: 0.72 },
@@ -283,11 +264,6 @@ const styles = StyleSheet.create({
   sideLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 5 },
   sideLabel: { color: '#9eacc3', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
   hint: { color: '#68758a', fontSize: 9 },
-  emergencyWrap: { marginVertical: 5 },
-  emergencyLabel: { color: '#c5ab6c', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginBottom: 3 },
-  emergencyCell: { maxHeight: 64, borderStyle: 'dashed' },
-  inactiveEmergency: { opacity: 0.13 },
-  emergencyMark: { color: '#e6d095', fontSize: 20, fontWeight: '900' },
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginTop: 5 },
   legendText: { color: '#65748a', fontSize: 9 },
 });
