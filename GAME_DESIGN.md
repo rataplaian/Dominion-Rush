@@ -85,7 +85,7 @@ Default restrictions:
 - melee: cannot normally deploy on the protected home row;
 - ranged: any controlled cell;
 - structures: any controlled cell;
-- active emergency cells override the home-row restriction.
+- if an enemy is physically occupying a defender's protected home-row cell, the defender may deploy a unit directly into that occupied cell as a special repel reinforcement; this overrides the normal melee home-row restriction.
 
 Individual future cards may override these defaults.
 
@@ -156,15 +156,20 @@ When an advancing unit enters conquerable enemy territory:
 
 Rows 0 and 5 never change ownership. An invader may occupy them and attack the Core, but cannot convert them into deployment territory.
 
-## Emergency reinforcement
+## Protected-row repel reinforcement
 
-When both conquerable cells of one defender lane are captured, a temporary emergency cell opens **behind that defender's protected row in the same column**.
+There are no extra emergency cells outside the 5×6 board.
 
-It:
-- exists outside the 5×6 board;
-- accepts one defender unit;
-- overrides normal home-row deployment restrictions;
-- provides one last counterplay window against a full lane breach.
+If an attacking unit reaches and occupies a defender's protected final-row cell:
+1. that protected cell still belongs to the defender;
+2. the defender may deploy one card directly into that occupied cell, paying the card's normal mana cost;
+3. the newly deployed defender takes the protected cell;
+4. the invading unit is pushed back exactly 1 cell toward its own side;
+5. this special deployment is legal only when the invader is exactly on the protected final row;
+6. the push is legal only if the previous cell is inside the board and empty;
+7. this special reinforcement overrides the normal melee restriction on the protected home row.
+
+If the previous cell is occupied, the repel deployment cannot be made until that cell becomes free.
 
 ## Match format
 
@@ -260,7 +265,7 @@ The current build exists to answer:
 - Is mana timing interesting?
 - Are melee/ranged formations readable?
 - Is advancing and conquering territory strategically meaningful?
-- Does the emergency-cell rule create comeback potential without removing the reward for pressure?
+- Does the protected-row repel rule create comeback potential without removing the reward for pressure?
 - Are match length and overtime appropriate?
 - Are there enough meaningful choices with an 8-card deck / 4-card hand?
 - Can the AI create interesting matches without cheating?
