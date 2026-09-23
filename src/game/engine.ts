@@ -291,8 +291,8 @@ export function claimPlayerHalfCell(
   if (!isNormalBoardCell(row, col) || !isPlayerHalfRow(row)) {
     return { ok: false, state, reason: 'You can buy territory only in your half of the battlefield.' };
   }
-  if (row === Math.floor(BOARD_ROWS / 2) && state.territory[row][col] === 'neutral') {
-    return { ok: false, state, reason: 'Neutral center cells must be conquered by advancing a unit; they cannot be bought.' };
+  if (row === Math.floor(BOARD_ROWS / 2)) {
+    return { ok: false, state, reason: 'Center-row cells must be conquered by advancing a unit; they cannot be bought.' };
   }
   if (state.territory[row][col] === 'player') {
     return { ok: false, state, reason: 'That cell is already yours.' };
