@@ -220,6 +220,7 @@ export function manualAdvanceEntity(
   if (!definition || definition.kind !== 'unit' || !definition.advanceCooldownMs || entity.moveReadyAt === null) {
     return { ok: false, state, reason: 'This piece is static and cannot advance.' };
   }
+  const movementCooldownMs = definition.advanceCooldownMs;
 
   if (state.timeMs < entity.moveReadyAt) {
     const seconds = Math.max(1, Math.ceil((entity.moveReadyAt - state.timeMs) / 1000));
@@ -247,7 +248,7 @@ export function manualAdvanceEntity(
       ...candidate,
       row: nextRow,
       chargePrimed: Boolean(definition.chargeBonus),
-      moveReadyAt: state.timeMs + definition.advanceCooldownMs,
+      moveReadyAt: state.timeMs + movementCooldownMs,
     };
   });
 
