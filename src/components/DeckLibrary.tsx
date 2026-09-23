@@ -17,7 +17,7 @@ function effectText(id: string): string {
     return `Splash: adjacent enemies take ${Math.round(unit.splashFactor * 100)}% of the main hit.`;
   }
   if (unit.advanceCooldownMs) {
-    return `Advance: moves forward 1 cell every ${unit.advanceCooldownMs / 1000}s if the next cell is free.`;
+    return `Movement charge: after ${unit.advanceCooldownMs / 1000}s the side arrow is ready. Tap the unit to advance 1 cell for free if the next cell is clear.`;
   }
   if (unit.attackType === 'none') {
     return 'Blocker: cannot attack or move.';
@@ -27,7 +27,7 @@ function effectText(id: string): string {
 
 function moveText(id: string): string {
   const unit = UNIT_BY_ID[id];
-  return unit.advanceCooldownMs ? `1 cell / ${unit.advanceCooldownMs / 1000}s` : 'Static';
+  return unit.advanceCooldownMs ? `Free move / ${unit.advanceCooldownMs / 1000}s` : 'Static';
 }
 
 function attackCdText(id: string): string {
