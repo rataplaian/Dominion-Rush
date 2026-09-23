@@ -32,8 +32,8 @@ import {
 } from './src/game';
 
 const TICK_MS = 100;
-const MENU_BG = require('./assets/menu-bg.webp');
-const SETUP_BG = require('./assets/setup-bg.webp');
+const MENU_BG = require('./assets/menu-bg.jpg');
+const SETUP_BG = require('./assets/setup-bg.jpg');
 
 function BackgroundShell({
   source,
