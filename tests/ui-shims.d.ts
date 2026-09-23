@@ -7,6 +7,7 @@ declare module 'react' {
 }
 
 declare module 'react-native' {
+  export const ImageBackground: any;
   export const Pressable: any;
   export const ScrollView: any;
   export const StyleSheet: { create<T>(styles: T): T };
