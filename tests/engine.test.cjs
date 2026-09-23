@@ -10,8 +10,6 @@ const {
   UNIT_BY_ID,
   territoryOwnerAt,
   territoryCount,
-  isEmergencyCellActive,
-  getEmergencyRow,
   getMatchRemainingMs,
   manualAdvanceEntity,
   claimPlayerHalfCell,
@@ -301,31 +299,73 @@ test('protected final home row never changes territory owner', () => {
   assert.equal(territoryOwnerAt(state, 0, 3), 'enemy');
 });
 
-test('fully breaching a lane opens the defender emergency slot', () => {
+test('defender can deploy onto an invader in the protected home row and push it back', () => {
   let state = createInitialState(17);
   state = deploy(state, 'player', 'legionnaire', 4, 0);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
   state = chargeAndMove(state, 'player', invader.id);
   state = chargeAndMove(state, 'player', invader.id);
   state = chargeAndMove(state, 'player', invader.id);
-  assert.equal(territoryOwnerAt(state, 2, 0), 'player');
-  assert.equal(territoryOwnerAt(state, 1, 0), 'player');
-  assert.equal(isEmergencyCellActive(state, 'enemy', 0), true);
-  assert.equal(getEmergencyRow('enemy'), -1);
+  state = chargeAndMove(state, 'player', invader.id);
+
+  assert.equal(entityAt(state, 0, 0).id, invader.id);
+  assert.equal(territoryOwnerAt(state, 0, 0), 'enemy');
+
+  state = withMana(state, 'enemy');
+  state = withCard(state, 'enemy', 'guardian');
+  const result = placeEntity(state, 'enemy', 'guardian', 0, 0);
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(entityAt(result.state, 0, 0).definitionId, 'guardian');
+  assert.equal(entityAt(result.state, 0, 0).owner, 'enemy');
+  assert.equal(entityAt(result.state, 1, 0).id, invader.id);
+  assert.equal(territoryOwnerAt(result.state, 0, 0), 'enemy');
 });
 
-test('defender can deploy melee into an active emergency slot', () => {
+test('home-row repel deployment is blocked if the invader cannot be pushed back', () => {
   let state = createInitialState(18);
   state = deploy(state, 'player', 'legionnaire', 4, 2);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
   state = chargeAndMove(state, 'player', invader.id);
   state = chargeAndMove(state, 'player', invader.id);
   state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+
+  state = {
+    ...state,
+    entities: [
+      ...state.entities,
+      {
+        id: state.nextEntityId,
+        definitionId: 'guardian',
+        owner: 'player',
+        row: 1,
+        col: 2,
+        hp: UNIT_BY_ID.guardian.maxHp,
+        attackReadyAt: state.timeMs + 250,
+        moveReadyAt: state.timeMs + UNIT_BY_ID.guardian.advanceCooldownMs,
+        chargePrimed: false,
+      },
+    ],
+    nextEntityId: state.nextEntityId + 1,
+  };
+
+  state = withMana(state, 'enemy');
+  state = withCard(state, 'enemy', 'guardian');
+  const result = placeEntity(state, 'enemy', 'guardian', 0, 2);
+
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /previous cell is occupied/);
+  assert.equal(entityAt(result.state, 0, 2).id, invader.id);
+});
+
+test('old outside-board emergency deployment no longer exists', () => {
+  let state = createInitialState(181);
   state = withMana(state, 'enemy');
   state = withCard(state, 'enemy', 'guardian');
   const result = placeEntity(state, 'enemy', 'guardian', -1, 2);
-  assert.equal(result.ok, true);
-  assert.equal(entityAt(result.state, -1, 2).definitionId, 'guardian');
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /Outside the board/);
 });
 
 test('splash attacks damage enemies in adjacent columns', () => {
