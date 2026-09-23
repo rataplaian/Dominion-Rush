@@ -1,5 +1,28 @@
 # Dominion Rush — Skirmish Alpha Design Baseline
 
+## App flow
+
+The app is separated into distinct screens:
+
+1. **Main Menu**
+   - GIOCA
+   - IMPOSTAZIONI
+
+2. **GIOCA**
+   - choose AI difficulty;
+   - choose player deck preset;
+   - inspect every unit in the selected deck;
+   - press PLAY to start the match.
+
+3. **MATCH**
+   - the battlefield, timer, mana, AI and combat exist only after PLAY;
+   - leaving the match returns to the main menu.
+
+4. **IMPOSTAZIONI**
+   - Glossario;
+   - Info;
+   - Regole.
+
 ## Core idea
 
 Dominion Rush is a real-time tactical grid game where **placement replaces direct movement control**.
