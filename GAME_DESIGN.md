@@ -85,11 +85,29 @@ Splash is an explicit exception: Pyromancer/Bombardier-style attacks may damage 
 
 ## Movement
 
-Movement exists only through card abilities.
+Movement is a charged manual action.
 
-Current implemented pattern:
-- **Advance:** after X seconds, move one cell toward the enemy if free.
-- **Charge:** advancing primes bonus damage for the next melee hit.
+Current implemented rules:
+- almost every **unit** has a movement recharge time;
+- structures and explicitly static pieces do not have movement charge;
+- the movement indicator is a small side arrow/bar on the unit token;
+- the bar fills with time but **never moves the unit automatically**;
+- when full, the arrow glows and the player may tap that unit to advance exactly **1 cell for 0 mana**;
+- if the forward cell is occupied, the charge remains ready and can be used later;
+- after a successful move, the bar resets and begins charging again;
+- assault/mobility units recharge quickly;
+- ranged/support units can still reposition, but recharge substantially more slowly;
+- **Charge:** units with a charge bonus prime that bonus only after a successful manual advance.
+
+Current movement-charge examples:
+- Knight: 6s
+- Legionnaire: 8s
+- Siege Ram: 9s
+- Guardian: 14s
+- Spearman: 16s
+- Archer: 18s
+- Bombardier: 20s
+- Pyromancer / Crossbow: 22s
 
 Future legal patterns:
 - breakthrough;
@@ -163,7 +181,7 @@ The battlefield, timer, mana regeneration and AI remain frozen until the player 
 
 | Card | Mana | Role |
 |---|---:|---|
-| Guardian | 2 | stationary melee tank |
+| Guardian | 2 | slow-moving melee tank |
 | Legionnaire | 3 | advancing melee |
 | Knight | 5 | fast charge invader |
 | Archer | 3 | fast ranged |
@@ -178,6 +196,8 @@ Additional coded cards: Crossbow, Siege Ram, Ballista, Bombardier.
 
 The single-player AI:
 - obeys mana;
+- uses the same charged movement rules as the player;
+- moves a unit only after that unit's movement charge is ready;
 - uses only its current 4-card hand;
 - deploys only on legal controlled territory;
 - prioritizes lanes under pressure;
