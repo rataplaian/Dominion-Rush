@@ -13,9 +13,9 @@ import { DeckLibrary } from './src/components/DeckLibrary';
 import { GameBoard } from './src/components/GameBoard';
 import {
   AiDifficulty,
+  claimPlayerHalfCell,
   createGameConfig,
   createInitialState,
-  claimPlayerHalfCell,
   DEFAULT_CONFIG,
   Entity,
   formatMana,
@@ -31,6 +31,9 @@ import {
 } from './src/game';
 
 const TICK_MS = 100;
+
+type AppScreen = 'menu' | 'setup' | 'game' | 'settings';
+type SettingsSection = 'glossary' | 'info' | 'rules';
 
 function StatPill({ label, value }: { label: string; value: string }) {
   return (
@@ -63,24 +66,213 @@ function attackSpeedLabel(ms: number, type: string): string {
 function movementLabel(id: string): string {
   const unit = UNIT_BY_ID[id];
   if (!unit.advanceCooldownMs) return 'Static';
-  return `Free advance / ${unit.advanceCooldownMs / 1000}s`;
+  return `Free move / ${unit.advanceCooldownMs / 1000}s`;
+}
+
+function BackButton({ onPress, label = '← BACK' }: { onPress: () => void; label?: string }) {
+  return (
+    <TouchableOpacity accessibilityRole="button" onPress={onPress} style={styles.backButton}>
+      <Text style={styles.backText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function MainMenu({
+  onPlay,
+  onSettings,
+}: {
+  onPlay: () => void;
+  onSettings: () => void;
+}) {
+  return (
+    <View style={styles.menuPage}>
+      <View style={styles.menuHero}>
+        <Text style={styles.menuEyebrow}>REAL-TIME GRID TACTICS</Text>
+        <Text style={styles.menuTitle}>Dominion Rush</Text>
+        <Text style={styles.menuSubtitle}>
+          Conquista il centro, controlla il territorio e distruggi il Core avversario.
+        </Text>
+      </View>
+
+      <View style={styles.menuButtons}>
+        <TouchableOpacity accessibilityRole="button" onPress={onPlay} style={styles.primaryMenuButton}>
+          <Text style={styles.primaryMenuIcon}>⚔️</Text>
+          <View style={styles.menuButtonTextWrap}>
+            <Text style={styles.primaryMenuText}>GIOCA</Text>
+            <Text style={styles.primaryMenuHint}>Scegli mazzo e difficoltà, poi entra in battaglia</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity accessibilityRole="button" onPress={onSettings} style={styles.secondaryMenuButton}>
+          <Text style={styles.primaryMenuIcon}>⚙️</Text>
+          <View style={styles.menuButtonTextWrap}>
+            <Text style={styles.secondaryMenuText}>IMPOSTAZIONI</Text>
+            <Text style={styles.secondaryMenuHint}>Glossario, informazioni e regole di gioco</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.versionText}>PLAYTEST 1.4</Text>
+    </View>
+  );
+}
+
+const GLOSSARY = [
+  ['Mana', 'Risorsa usata per giocare carte e, in alcune zone, reclamare territorio. Parte da 3 e arriva a 10.'],
+  ['Mano', 'Hai 4 carte visibili. Quando ne giochi una, entra automaticamente la carta successiva del mazzo.'],
+  ['Range', 'Numero massimo di caselle davanti nella stessa colonna che un attacco può raggiungere.'],
+  ['Movement Charge', 'Barra laterale della pedina. Quando è piena e la freccia ↑ si illumina, puoi avanzare di 1 casella gratis.'],
+  ['Territorio neutrale', 'Le due file centrali partono neutrali. Non puoi schierarci finché non vengono conquistate avanzando.'],
+  ['Core', 'La base di ogni giocatore. Se il tuo Core arriva a 0 HP perdi immediatamente.'],
+  ['Protected Row', 'La fila più vicina al Core non cambia proprietario anche se viene occupata da un invasore.'],
+  ['Emergency Line', 'Slot temporaneo dietro la fila protetta che può comparire quando una corsia viene completamente sfondata.'],
+  ['Charge', 'Bonus applicato ad alcune unità dopo un avanzamento manuale riuscito.'],
+  ['Splash', 'Parte del danno colpisce anche nemici nelle colonne adiacenti al bersaglio principale.'],
+  ['Overtime', 'Se a 3:00 i Core hanno gli stessi HP, parte 1 minuto supplementare con rigenerazione mana doppia.'],
+] as const;
+
+function SettingsScreen({
+  section,
+  setSection,
+  onBack,
+}: {
+  section: SettingsSection;
+  setSection: (value: SettingsSection) => void;
+  onBack: () => void;
+}) {
+  return (
+    <ScrollView contentContainerStyle={styles.page}>
+      <View style={styles.screenHeader}>
+        <BackButton onPress={onBack} />
+        <View style={styles.screenHeaderText}>
+          <Text style={styles.screenEyebrow}>DOMINION RUSH</Text>
+          <Text style={styles.screenTitle}>Impostazioni</Text>
+        </View>
+      </View>
+
+      <View style={styles.settingsTabs}>
+        {([
+          ['glossary', 'GLOSSARIO'],
+          ['info', 'INFO'],
+          ['rules', 'REGOLE'],
+        ] as [SettingsSection, string][]).map(([id, label]) => (
+          <TouchableOpacity
+            key={id}
+            accessibilityRole="button"
+            accessibilityState={{ selected: section === id }}
+            onPress={() => setSection(id)}
+            style={[styles.settingsTab, section === id ? styles.settingsTabActive : null]}
+          >
+            <Text style={[styles.settingsTabText, section === id ? styles.settingsTabTextActive : null]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {section === 'glossary' ? (
+        <View style={styles.settingsContent}>
+          <Text style={styles.sectionHeading}>Glossario</Text>
+          <Text style={styles.sectionIntro}>I termini principali usati durante una partita.</Text>
+          {GLOSSARY.map(([term, description]) => (
+            <View key={term} style={styles.glossaryItem}>
+              <Text style={styles.glossaryTerm}>{term}</Text>
+              <Text style={styles.glossaryDescription}>{description}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {section === 'info' ? (
+        <View style={styles.settingsContent}>
+          <Text style={styles.sectionHeading}>Info</Text>
+          <Text style={styles.sectionIntro}>
+            Dominion Rush è un gioco tattico in tempo reale su griglia 5×6. La posizione delle unità,
+            il timing delle carte e la conquista del terreno contano più del movimento continuo.
+          </Text>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>VERSIONE</Text>
+            <Text style={styles.infoValue}>Playtest 1.4</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>MODALITÀ ATTUALE</Text>
+            <Text style={styles.infoValue}>Single Player vs AI</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>CAMPO</Text>
+            <Text style={styles.infoValue}>5 colonne × 6 file</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>DURATA</Text>
+            <Text style={styles.infoValue}>3:00 + eventuale overtime 1:00</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {section === 'rules' ? (
+        <View style={styles.settingsContent}>
+          <Text style={styles.sectionHeading}>Regole principali</Text>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>01</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Obiettivo</Text>
+              <Text style={styles.ruleBody}>Distruggi il Core nemico oppure termina il tempo con più HP del Core.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>02</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Schieramento</Text>
+              <Text style={styles.ruleBody}>Puoi piazzare carte solo nelle caselle che controlli. Le due file centrali sono inizialmente neutrali.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>03</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Combattimento</Text>
+              <Text style={styles.ruleBody}>Gli attacchi sono automatici quando esiste un bersaglio valido nel range e nella stessa corsia.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>04</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Movimento</Text>
+              <Text style={styles.ruleBody}>Quasi tutte le unità caricano una freccia movimento. Quando è pronta, tocca la pedina per avanzare di 1 gratis.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>05</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Conquista</Text>
+              <Text style={styles.ruleBody}>Entrare in una casella neutrale o nemica conquistabile ne cambia il controllo. La fila protetta del Core non cambia proprietario.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>06</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Overtime</Text>
+              <Text style={styles.ruleBody}>A parità di HP dopo 3 minuti parte 1 minuto con mana doppio. Poi decide HP, territorio e infine pareggio.</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
 }
 
 export default function App() {
+  const [screen, setScreen] = useState<AppScreen>('menu');
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('glossary');
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal');
   const [playerPreset, setPlayerPreset] = useState<SkirmishPresetId>('balanced');
-  const [enemyPreset, setEnemyPreset] = useState<SkirmishPresetId>('balanced');
+  const [libraryUnitId, setLibraryUnitId] = useState<string>(SKIRMISH_PRESETS.balanced.deck[0]);
   const config = useMemo(() => createGameConfig(difficulty), [difficulty]);
 
-  const buildState = (
-    level: AiDifficulty,
-    playerDeckId: SkirmishPresetId,
-    enemyDeckId: SkirmishPresetId,
-  ) => createInitialState(
+  const buildState = () => createInitialState(
     Date.now() | 0,
-    createGameConfig(level),
-    [...SKIRMISH_PRESETS[playerDeckId].deck],
-    [...SKIRMISH_PRESETS[enemyDeckId].deck],
+    config,
+    [...SKIRMISH_PRESETS[playerPreset].deck],
+    [...SKIRMISH_PRESETS.balanced.deck],
   );
 
   const [state, setState] = useState<GameState>(() =>
@@ -92,19 +284,19 @@ export default function App() {
     ),
   );
   const [selectedCardId, setSelectedCardId] = useState(() => state.players.player.cards.hand[0]);
-  const [libraryUnitId, setLibraryUnitId] = useState<string>(SKIRMISH_PRESETS.balanced.deck[0]);
   const [inspectedEntityId, setInspectedEntityId] = useState<number | null>(null);
-  const [message, setMessage] = useState('Choose difficulty and decks, then press START MATCH.');
-  const [started, setStarted] = useState(false);
+  const [message, setMessage] = useState('Select a card, then deploy it on your territory.');
   const [paused, setPaused] = useState(false);
 
+  const inGame = screen === 'game';
+
   useEffect(() => {
-    if (!started || paused || state.winner) return undefined;
+    if (!inGame || paused || state.winner) return undefined;
     const handle = setInterval(() => {
       setState((current) => tickGame(current, TICK_MS, config));
     }, TICK_MS);
     return () => clearInterval(handle);
-  }, [started, paused, state.winner, config]);
+  }, [inGame, paused, state.winner, config]);
 
   useEffect(() => {
     if (!state.players.player.cards.hand.includes(selectedCardId)) {
@@ -125,46 +317,31 @@ export default function App() {
   const inspectedDefinition = inspectedEntity ? UNIT_BY_ID[inspectedEntity.definitionId] : selected;
 
   const remaining = getMatchRemainingMs(state, config);
-  const phaseLabel = !started
-    ? 'READY'
-    : state.phase === 'overtime'
-      ? 'OVERTIME · 2× MANA'
-      : state.phase === 'finished'
-        ? 'FINISHED'
-        : paused
-          ? 'PAUSED'
-          : 'REGULATION';
-
   const recentEvents = useMemo(() => [...state.events].reverse().slice(0, 5), [state.events]);
 
-  const prepareMatch = (
-    level: AiDifficulty = difficulty,
-    nextPlayerPreset: SkirmishPresetId = playerPreset,
-    nextEnemyPreset: SkirmishPresetId = enemyPreset,
-  ) => {
-    const fresh = buildState(level, nextPlayerPreset, nextEnemyPreset);
-    setState(fresh);
-    setSelectedCardId(fresh.players.player.cards.hand[0]);
-    setLibraryUnitId(SKIRMISH_PRESETS[nextPlayerPreset].deck[0]);
-    setInspectedEntityId(null);
-    setStarted(false);
-    setPaused(false);
-    setMessage('Setup ready. Press START MATCH when you are ready.');
+  const openSetup = () => {
+    setLibraryUnitId(SKIRMISH_PRESETS[playerPreset].deck[0]);
+    setScreen('setup');
   };
 
   const startMatch = () => {
-    const fresh = buildState(difficulty, playerPreset, enemyPreset);
+    const fresh = buildState();
     setState(fresh);
     setSelectedCardId(fresh.players.player.cards.hand[0]);
-    setLibraryUnitId(SKIRMISH_PRESETS[playerPreset].deck[0]);
     setInspectedEntityId(null);
     setPaused(false);
-    setStarted(true);
     setMessage('Match started. Select a card, then tap a bright blue cell to deploy it.');
+    setScreen('game');
+  };
+
+  const leaveGame = () => {
+    setPaused(false);
+    setInspectedEntityId(null);
+    setScreen('menu');
   };
 
   const handleCellPress = (row: number, col: number) => {
-    if (!started || paused || state.winner) return;
+    if (paused || state.winner) return;
 
     const isPlayerHalf = row >= 3;
     const isUnownedPlayerHalfCell = isPlayerHalf && state.territory[row]?.[col] !== 'player';
@@ -202,7 +379,7 @@ export default function App() {
   };
 
   const handleEntityPress = (entity: Entity) => {
-    if (started && !paused && !state.winner && entity.owner === 'player') {
+    if (!paused && !state.winner && entity.owner === 'player') {
       const definition = UNIT_BY_ID[entity.definitionId];
 
       if (definition.kind === 'unit' && definition.advanceCooldownMs && entity.moveReadyAt !== null) {
@@ -226,20 +403,104 @@ export default function App() {
     inspectEntity(entity);
   };
 
-  const changeDifficulty = (level: AiDifficulty) => {
-    setDifficulty(level);
-    prepareMatch(level, playerPreset, enemyPreset);
-  };
+  if (screen === 'menu') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="light-content" />
+        <MainMenu onPlay={openSetup} onSettings={() => setScreen('settings')} />
+      </SafeAreaView>
+    );
+  }
 
-  const changePlayerPreset = (nextPreset: SkirmishPresetId) => {
-    setPlayerPreset(nextPreset);
-    prepareMatch(difficulty, nextPreset, enemyPreset);
-  };
+  if (screen === 'settings') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="light-content" />
+        <SettingsScreen
+          section={settingsSection}
+          setSection={setSettingsSection}
+          onBack={() => setScreen('menu')}
+        />
+      </SafeAreaView>
+    );
+  }
 
-  const changeEnemyPreset = (nextPreset: SkirmishPresetId) => {
-    setEnemyPreset(nextPreset);
-    prepareMatch(difficulty, playerPreset, nextPreset);
-  };
+  if (screen === 'setup') {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="light-content" />
+        <ScrollView contentContainerStyle={styles.page}>
+          <View style={styles.screenHeader}>
+            <BackButton onPress={() => setScreen('menu')} />
+            <View style={styles.screenHeaderText}>
+              <Text style={styles.screenEyebrow}>GIOCA</Text>
+              <Text style={styles.screenTitle}>Prepara la partita</Text>
+            </View>
+          </View>
+
+          <View style={styles.setupPanel}>
+            <Text style={styles.setupTitle}>DIFFICOLTÀ</Text>
+            <View style={styles.difficultyRow}>
+              {(['easy', 'normal', 'hard'] as AiDifficulty[]).map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: difficulty === level }}
+                  onPress={() => setDifficulty(level)}
+                  style={[styles.difficultyButton, difficulty === level ? styles.difficultySelected : null]}
+                >
+                  <Text style={[styles.difficultyText, difficulty === level ? styles.difficultyTextSelected : null]}>
+                    {level === 'easy' ? 'FACILE' : level === 'normal' ? 'NORMALE' : 'DIFFICILE'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.setupTitle, styles.setupTitleSpacing]}>MAZZO</Text>
+            <View style={styles.presetRow}>
+              {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
+                <TouchableOpacity
+                  key={id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: playerPreset === id }}
+                  onPress={() => {
+                    setPlayerPreset(id);
+                    setLibraryUnitId(SKIRMISH_PRESETS[id].deck[0]);
+                  }}
+                  style={[styles.presetButton, playerPreset === id ? styles.presetSelected : null]}
+                >
+                  <Text style={[styles.presetText, playerPreset === id ? styles.presetTextSelected : null]}>
+                    {SKIRMISH_PRESETS[id].name.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[playerPreset].description}</Text>
+
+            <DeckLibrary
+              deckIds={SKIRMISH_PRESETS[playerPreset].deck}
+              selectedId={libraryUnitId}
+              onSelect={setLibraryUnitId}
+            />
+
+            <TouchableOpacity accessibilityRole="button" onPress={startMatch} style={styles.startButton}>
+              <Text style={styles.startButtonText}>▶ PLAY</Text>
+              <Text style={styles.startButtonHint}>La partita inizia solo dopo questo pulsante.</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const phaseLabel =
+    state.phase === 'overtime'
+      ? 'OVERTIME · 2× MANA'
+      : state.phase === 'finished'
+        ? 'FINISHED'
+        : paused
+          ? 'PAUSED'
+          : 'REGULATION';
 
   const resultTitle =
     state.winner === 'player' ? 'VICTORY' :
@@ -253,102 +514,28 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.page}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.eyebrow}>SINGLE PLAYER · PLAYTEST 1.3</Text>
-            <Text style={styles.title}>Dominion Rush</Text>
-            <Text style={styles.subtitle}>Real-time grid tactics · 5 × 6 battlefield</Text>
-          </View>
-          <TouchableOpacity accessibilityRole="button" onPress={() => prepareMatch()} style={styles.resetButton}>
-            <Text style={styles.resetText}>NEW MATCH</Text>
+      <ScrollView contentContainerStyle={styles.gamePage}>
+        <View style={styles.gameHeader}>
+          <TouchableOpacity accessibilityRole="button" onPress={leaveGame} style={styles.smallMenuButton}>
+            <Text style={styles.smallMenuButtonText}>☰ MENU</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={[styles.setupPanel, started ? styles.setupLocked : null]}>
-          <View style={styles.setupHeader}>
-            <View>
-              <Text style={styles.setupTitle}>{started ? 'MATCH SETUP' : 'BEFORE THE BATTLE'}</Text>
-              <Text style={styles.setupSubtitle}>
-                {started ? 'Setup is locked until you start a new match.' : 'Choose the match, inspect your opening hand, then start.'}
-              </Text>
-            </View>
+          <View style={styles.gameTitleWrap}>
+            <Text style={styles.gameTitle}>Dominion Rush</Text>
+            <Text style={styles.gameSubTitle}>{difficulty.toUpperCase()} AI · {SKIRMISH_PRESETS[playerPreset].name}</Text>
           </View>
-
-          <View style={styles.difficultyRow}>
-            {(['easy', 'normal', 'hard'] as AiDifficulty[]).map((level) => (
-              <TouchableOpacity
-                key={level}
-                accessibilityRole="button"
-                accessibilityState={{ selected: difficulty === level, disabled: started }}
-                disabled={started}
-                onPress={() => changeDifficulty(level)}
-                style={[styles.difficultyButton, difficulty === level ? styles.difficultySelected : null]}
-              >
-                <Text style={[styles.difficultyText, difficulty === level ? styles.difficultyTextSelected : null]}>
-                  {level.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.presetLabel}>YOUR DECK</Text>
-          <View style={styles.presetRow}>
-            {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
-              <TouchableOpacity
-                key={`player-${id}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: playerPreset === id, disabled: started }}
-                disabled={started}
-                onPress={() => changePlayerPreset(id)}
-                style={[styles.presetButton, playerPreset === id ? styles.presetSelected : null]}
-              >
-                <Text style={[styles.presetText, playerPreset === id ? styles.presetTextSelected : null]}>
-                  {SKIRMISH_PRESETS[id].name.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[playerPreset].description}</Text>
-
-          <DeckLibrary
-            deckIds={SKIRMISH_PRESETS[playerPreset].deck}
-            selectedId={libraryUnitId}
-            onSelect={setLibraryUnitId}
-          />
-
-          <Text style={[styles.presetLabel, styles.enemyPresetLabel]}>ENEMY DECK</Text>
-          <View style={styles.presetRow}>
-            {(Object.keys(SKIRMISH_PRESETS) as SkirmishPresetId[]).map((id) => (
-              <TouchableOpacity
-                key={`enemy-${id}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: enemyPreset === id, disabled: started }}
-                disabled={started}
-                onPress={() => changeEnemyPreset(id)}
-                style={[styles.presetButton, enemyPreset === id ? styles.enemyPresetSelected : null]}
-              >
-                <Text style={[styles.presetText, enemyPreset === id ? styles.presetTextSelected : null]}>
-                  {SKIRMISH_PRESETS[id].name.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.presetDescription}>{SKIRMISH_PRESETS[enemyPreset].description}</Text>
-
-          {!started ? (
-            <TouchableOpacity accessibilityRole="button" onPress={startMatch} style={styles.startButton}>
-              <Text style={styles.startButtonText}>▶ PLAY</Text>
-              <Text style={styles.startButtonHint}>Nothing moves before PLAY. Timer, mana regeneration and enemy AI begin only after PLAY.</Text>
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => setPaused((value) => !value)}
+            style={styles.smallMenuButton}
+            disabled={Boolean(state.winner)}
+          >
+            <Text style={styles.smallMenuButtonText}>{paused ? '▶' : 'Ⅱ'}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.phaseBanner}>
           <Text style={styles.phaseText}>{phaseLabel}</Text>
-          <Text style={styles.phaseHint}>
-            {difficulty.toUpperCase()} AI · {state.phase === 'overtime' ? '1 mana / sec' : '1 mana / 2 sec'}
-          </Text>
+          <Text style={styles.phaseHint}>{state.phase === 'overtime' ? '1 mana / sec' : '1 mana / 2 sec'}</Text>
         </View>
 
         <View style={styles.scoreRow}>
@@ -357,47 +544,24 @@ export default function App() {
           <StatPill label="YOUR CORE" value={`${Math.round(state.players.player.coreHp)} HP`} />
         </View>
 
-        <View style={styles.enemyManaRow}>
-          <Text style={styles.enemyMana}>
-            Territory {territoryCount(state, 'enemy')}–{territoryCount(state, 'player')} · Enemy mana {formatMana(state.players.enemy.mana)}
-          </Text>
-          {started ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setPaused((value) => !value)}
-              style={styles.pauseButton}
-              disabled={Boolean(state.winner)}
-            >
-              <Text style={styles.pauseText}>{paused ? '▶ PLAY' : 'Ⅱ PAUSE'}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {!started ? (
-          <View style={styles.readyNotice}>
-            <Text style={styles.readyTitle}>THE BATTLE HAS NOT STARTED</Text>
-            <Text style={styles.readyText}>
-              The board, timer, mana regeneration and enemy AI are frozen. Inspect your deck and press PLAY when ready.
-            </Text>
-          </View>
-        ) : null}
+        <Text style={styles.enemyMana}>
+          Territory {territoryCount(state, 'enemy')}–{territoryCount(state, 'player')} · Enemy mana {formatMana(state.players.enemy.mana)}
+        </Text>
 
         <GameBoard
           state={state}
           selectedCardId={selectedCardId}
           onCellPress={handleCellPress}
           onEntityPress={handleEntityPress}
-          interactionEnabled={started && !paused && !Boolean(state.winner)}
+          interactionEnabled={!paused && !Boolean(state.winner)}
         />
 
         {state.winner ? (
           <View style={styles.resultBox}>
             <Text style={styles.resultTitle}>{resultTitle}</Text>
-            <Text style={styles.resultText}>
-              {state.events[state.events.length - 1]?.text ?? 'Match finished.'}
-            </Text>
-            <TouchableOpacity accessibilityRole="button" onPress={() => prepareMatch()} style={styles.playAgainButton}>
-              <Text style={styles.playAgainText}>SET UP NEXT MATCH</Text>
+            <Text style={styles.resultText}>{state.events[state.events.length - 1]?.text ?? 'Match finished.'}</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setScreen('setup')} style={styles.playAgainButton}>
+              <Text style={styles.playAgainText}>NUOVA PARTITA</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -410,7 +574,6 @@ export default function App() {
           <View style={styles.manaTrack}>
             <View style={[styles.manaFill, { width: `${(state.players.player.mana / DEFAULT_CONFIG.maxMana) * 100}%` }]} />
           </View>
-          <Text style={styles.manaHint}>Starts at 3 · maximum 10 · doubles only during overtime</Text>
         </View>
 
         <CardBar
@@ -461,9 +624,6 @@ export default function App() {
           </View>
 
           <Text style={styles.unitDescription}>{inspectedDefinition.description}</Text>
-          <Text style={styles.rangeHelp}>
-            RANGE is measured in grid cells forward in the same lane. Example: RANGE 4 can hit up to four cells ahead, but not sideways unless the unit has a special splash effect.
-          </Text>
           <Text style={styles.message}>{message}</Text>
         </View>
 
@@ -474,10 +634,6 @@ export default function App() {
             <Text key={event.id} style={styles.logLine}>• {event.text}</Text>
           ))}
         </View>
-
-        <Text style={styles.rules}>
-          Eight-card deck, four-card rotating hand. Almost every unit has a movement charge. When the side arrow is full and glowing, tap that unit to advance it one cell for free if the cell ahead is empty. Movement-focused units recharge much faster; ranged/support units recharge much more slowly. Structures and explicitly static pieces do not move. Empty cells in your half can still be claimed directly: 1 mana when adjacent to your territory, otherwise 2 mana.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -485,53 +641,85 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0d1119' },
-  page: { padding: 16, gap: 14, paddingBottom: 36 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' },
-  headerTextWrap: { flex: 1 },
-  eyebrow: { color: '#6fb6df', fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-  title: { color: '#f7f9fc', fontSize: 26, fontWeight: '900', marginTop: 2 },
-  subtitle: { color: '#8593a9', fontSize: 12, marginTop: 2 },
-  resetButton: { borderWidth: 1, borderColor: '#39465c', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
-  resetText: { color: '#d8dfeb', fontSize: 9, fontWeight: '900' },
+  page: { padding: 16, gap: 14, paddingBottom: 40 },
+  gamePage: { padding: 12, gap: 12, paddingBottom: 32 },
 
-  setupPanel: { backgroundColor: '#121925', borderWidth: 1, borderColor: '#2a3548', borderRadius: 14, padding: 12, gap: 7 },
-  setupLocked: { opacity: 0.72 },
-  setupHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  setupTitle: { color: '#f3f6fb', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
-  setupSubtitle: { color: '#74839a', fontSize: 9, marginTop: 2 },
-  presetLabel: { color: '#9eacc3', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  presetRow: { flexDirection: 'row', gap: 8 },
-  presetButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
-  presetSelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
-  enemyPresetSelected: { borderColor: '#d48aa3', backgroundColor: '#38202a' },
-  presetText: { color: '#7f8da5', fontSize: 9, fontWeight: '900', letterSpacing: 0.6 },
-  presetTextSelected: { color: '#f5efff' },
-  presetDescription: { color: '#6f7e94', fontSize: 9 },
-  enemyPresetLabel: { marginTop: 4 },
+  menuPage: { flex: 1, padding: 22, justifyContent: 'space-between' },
+  menuHero: { marginTop: 44, gap: 8 },
+  menuEyebrow: { color: '#6fb6df', fontSize: 10, fontWeight: '900', letterSpacing: 1.8 },
+  menuTitle: { color: '#f7f9fc', fontSize: 38, fontWeight: '900', letterSpacing: -1 },
+  menuSubtitle: { color: '#8695aa', fontSize: 14, lineHeight: 21, maxWidth: 440 },
+  menuButtons: { gap: 12 },
+  primaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#205d46', borderRadius: 16, padding: 16 },
+  secondaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#171e2a', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2c384b' },
+  primaryMenuIcon: { fontSize: 27 },
+  menuButtonTextWrap: { flex: 1 },
+  primaryMenuText: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  primaryMenuHint: { color: '#c8ded4', fontSize: 10, marginTop: 3 },
+  secondaryMenuText: { color: '#edf2f8', fontSize: 15, fontWeight: '900', letterSpacing: 0.7 },
+  secondaryMenuHint: { color: '#8492a7', fontSize: 10, marginTop: 3 },
+  versionText: { color: '#536174', fontSize: 9, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+
+  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backButton: { borderWidth: 1, borderColor: '#334158', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
+  backText: { color: '#cbd4e1', fontSize: 9, fontWeight: '900' },
+  screenHeaderText: { flex: 1 },
+  screenEyebrow: { color: '#6fb6df', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  screenTitle: { color: '#f5f8fc', fontSize: 22, fontWeight: '900', marginTop: 1 },
+
+  settingsTabs: { flexDirection: 'row', gap: 7 },
+  settingsTab: { flex: 1, paddingVertical: 10, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, alignItems: 'center', backgroundColor: '#151c27' },
+  settingsTabActive: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
+  settingsTabText: { color: '#74839a', fontSize: 9, fontWeight: '900' },
+  settingsTabTextActive: { color: '#eef5fb' },
+  settingsContent: { gap: 9 },
+  sectionHeading: { color: '#f5f8fc', fontSize: 18, fontWeight: '900' },
+  sectionIntro: { color: '#8c9aad', fontSize: 11, lineHeight: 17 },
+  glossaryItem: { backgroundColor: '#151d29', borderRadius: 11, padding: 11, borderWidth: 1, borderColor: '#253146' },
+  glossaryTerm: { color: '#dfeaf4', fontSize: 11, fontWeight: '900' },
+  glossaryDescription: { color: '#8795a9', fontSize: 10, lineHeight: 15, marginTop: 3 },
+  infoCard: { backgroundColor: '#151d29', borderRadius: 10, padding: 11, borderWidth: 1, borderColor: '#253146' },
+  infoLabel: { color: '#718198', fontSize: 8, fontWeight: '900' },
+  infoValue: { color: '#ecf1f7', fontSize: 12, fontWeight: '800', marginTop: 2 },
+  ruleCard: { flexDirection: 'row', gap: 10, backgroundColor: '#151d29', borderRadius: 11, padding: 11, borderWidth: 1, borderColor: '#253146' },
+  ruleNumber: { color: '#6fb6df', fontSize: 13, fontWeight: '900' },
+  ruleTextWrap: { flex: 1 },
+  ruleTitle: { color: '#edf2f8', fontSize: 11, fontWeight: '900' },
+  ruleBody: { color: '#8795a9', fontSize: 10, lineHeight: 15, marginTop: 3 },
+
+  setupPanel: { backgroundColor: '#121925', borderWidth: 1, borderColor: '#2a3548', borderRadius: 14, padding: 12, gap: 8 },
+  setupTitle: { color: '#e7edf5', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  setupTitleSpacing: { marginTop: 5 },
   difficultyRow: { flexDirection: 'row', gap: 8 },
-  difficultyButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 8, alignItems: 'center', backgroundColor: '#141b26' },
+  difficultyButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 9, alignItems: 'center', backgroundColor: '#141b26' },
   difficultySelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
-  difficultyText: { color: '#7f8da5', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  difficultyText: { color: '#7f8da5', fontSize: 9, fontWeight: '900' },
   difficultyTextSelected: { color: '#f6f8fc' },
-  startButton: { marginTop: 7, backgroundColor: '#2e6f52', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 14, alignItems: 'center' },
-  startButtonText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+  presetRow: { flexDirection: 'row', gap: 8 },
+  presetButton: { flex: 1, borderWidth: 1, borderColor: '#303b50', borderRadius: 9, paddingVertical: 9, alignItems: 'center', backgroundColor: '#141b26' },
+  presetSelected: { borderColor: '#6fb6df', backgroundColor: '#1d3143' },
+  presetText: { color: '#7f8da5', fontSize: 9, fontWeight: '900' },
+  presetTextSelected: { color: '#f5efff' },
+  presetDescription: { color: '#78869a', fontSize: 9 },
+  startButton: { marginTop: 9, backgroundColor: '#2e6f52', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, alignItems: 'center' },
+  startButtonText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
   startButtonHint: { color: '#c8e3d5', fontSize: 9, marginTop: 3 },
+
+  gameHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  smallMenuButton: { minWidth: 52, paddingVertical: 8, paddingHorizontal: 9, backgroundColor: '#171e2a', borderRadius: 9, borderWidth: 1, borderColor: '#2d394d', alignItems: 'center' },
+  smallMenuButtonText: { color: '#d6deea', fontSize: 9, fontWeight: '900' },
+  gameTitleWrap: { flex: 1, alignItems: 'center' },
+  gameTitle: { color: '#f7f9fc', fontSize: 15, fontWeight: '900' },
+  gameSubTitle: { color: '#738198', fontSize: 8, marginTop: 1 },
 
   phaseBanner: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#171e2a', borderRadius: 10, padding: 9 },
   phaseText: { color: '#f6f8fc', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   phaseHint: { color: '#9f8ac7', fontSize: 10, fontWeight: '800' },
-  scoreRow: { flexDirection: 'row', gap: 8 },
-  statPill: { flex: 1, backgroundColor: '#171e2a', borderRadius: 12, padding: 9, borderWidth: 1, borderColor: '#273248' },
-  statLabel: { color: '#77869b', fontSize: 8, fontWeight: '800' },
-  statValue: { color: '#f6f8fc', fontSize: 12, fontWeight: '900', marginTop: 2 },
-  enemyManaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  enemyMana: { color: '#c28da1', fontSize: 10, fontWeight: '700', flex: 1 },
-  pauseButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#1b2230' },
-  pauseText: { color: '#b9c4d4', fontSize: 9, fontWeight: '900' },
-
-  readyNotice: { backgroundColor: '#193143', borderWidth: 1, borderColor: '#3d6b87', borderRadius: 12, padding: 11 },
-  readyTitle: { color: '#d8effc', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
-  readyText: { color: '#93b5c9', fontSize: 10, marginTop: 3 },
+  scoreRow: { flexDirection: 'row', gap: 7 },
+  statPill: { flex: 1, backgroundColor: '#171e2a', borderRadius: 11, padding: 8, borderWidth: 1, borderColor: '#273248' },
+  statLabel: { color: '#77869b', fontSize: 7, fontWeight: '800' },
+  statValue: { color: '#f6f8fc', fontSize: 11, fontWeight: '900', marginTop: 2 },
+  enemyMana: { color: '#c28da1', fontSize: 9, fontWeight: '700' },
 
   resultBox: { backgroundColor: '#20283a', borderRadius: 14, borderWidth: 1, borderColor: '#596b89', padding: 16, alignItems: 'center', gap: 7 },
   resultTitle: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 2 },
@@ -539,13 +727,12 @@ const styles = StyleSheet.create({
   playAgainButton: { marginTop: 4, backgroundColor: '#263c54', paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10 },
   playAgainText: { color: '#fff', fontSize: 10, fontWeight: '900' },
 
-  manaPanel: { gap: 6 },
+  manaPanel: { gap: 5 },
   manaHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  manaTitle: { color: '#9eacc3', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  manaNumber: { color: '#c6a8ff', fontSize: 13, fontWeight: '900' },
-  manaTrack: { height: 9, backgroundColor: '#25213a', borderRadius: 99, overflow: 'hidden' },
+  manaTitle: { color: '#9eacc3', fontSize: 10, fontWeight: '900' },
+  manaNumber: { color: '#c6a8ff', fontSize: 12, fontWeight: '900' },
+  manaTrack: { height: 8, backgroundColor: '#25213a', borderRadius: 99, overflow: 'hidden' },
   manaFill: { height: '100%', backgroundColor: '#9f7aea' },
-  manaHint: { color: '#69768a', fontSize: 10 },
 
   unitInfoPanel: { backgroundColor: '#141b26', borderRadius: 14, padding: 12, gap: 9, borderWidth: 1, borderColor: '#273248' },
   unitInfoHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
@@ -559,12 +746,10 @@ const styles = StyleSheet.create({
   detailLabel: { color: '#738299', fontSize: 7, fontWeight: '900' },
   detailValue: { color: '#e9eef6', fontSize: 10, fontWeight: '900', marginTop: 2 },
   unitDescription: { color: '#b5c0d0', fontSize: 10, lineHeight: 15 },
-  rangeHelp: { color: '#7892a7', fontSize: 9, lineHeight: 14 },
   message: { color: '#edf2f8', fontSize: 10, fontWeight: '700' },
 
   logPanel: { borderTopWidth: 1, borderTopColor: '#252f42', paddingTop: 10, gap: 4 },
   logTitle: { color: '#9eacc3', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   logEmpty: { color: '#667489', fontSize: 10 },
   logLine: { color: '#9aa8bc', fontSize: 10 },
-  rules: { color: '#617087', fontSize: 10, lineHeight: 15 },
 });
