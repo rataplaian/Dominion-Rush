@@ -34,29 +34,47 @@ function EntityToken({ entity, timeMs }: { entity: Entity; timeMs: number }) {
   const moveRemaining = definition.advanceCooldownMs && entity.moveReadyAt !== null
     ? Math.max(0, entity.moveReadyAt - timeMs)
     : null;
+  const moveRatio = moveRemaining !== null && definition.advanceCooldownMs
+    ? Math.max(0, Math.min(1, 1 - moveRemaining / definition.advanceCooldownMs))
+    : null;
+  const moveReady = moveRatio !== null && moveRatio >= 0.999;
 
   return (
     <View style={[styles.token, entity.owner === 'player' ? styles.playerToken : styles.enemyToken]}>
-      <View style={styles.tokenTopRow}>
-        <Text style={styles.icon}>{definition.icon}</Text>
-        {moveRemaining !== null ? (
-          <Text style={styles.moveTimer}>{Math.ceil(moveRemaining / 1000)}s↑</Text>
-        ) : null}
-      </View>
-
-      <Text style={styles.tokenName} numberOfLines={1}>{definition.shortName}</Text>
-
-      <View style={styles.hpTrack}>
-        <View style={[styles.hpFill, { width: `${hpRatio * 100}%` }]} />
-      </View>
-
-      {definition.attackType !== 'none' ? (
-        <View style={styles.cooldownTrack}>
-          <View style={[styles.cooldownFill, { width: `${attackRatio * 100}%` }]} />
+      <View style={styles.tokenMain}>
+        <View style={styles.tokenTopRow}>
+          <Text style={styles.icon}>{definition.icon}</Text>
         </View>
-      ) : (
-        <Text style={styles.passiveMark}>■</Text>
-      )}
+
+        <Text style={styles.tokenName} numberOfLines={1}>{definition.shortName}</Text>
+
+        <View style={styles.hpTrack}>
+          <View style={[styles.hpFill, { width: `${hpRatio * 100}%` }]} />
+        </View>
+
+        {definition.attackType !== 'none' ? (
+          <View style={styles.cooldownTrack}>
+            <View style={[styles.cooldownFill, { width: `${attackRatio * 100}%` }]} />
+          </View>
+        ) : (
+          <Text style={styles.passiveMark}>■</Text>
+        )}
+      </View>
+
+      {moveRatio !== null ? (
+        <View style={[styles.moveRail, moveReady ? styles.moveRailReady : null]}>
+          <View style={styles.moveRailTrack}>
+            <View
+              style={[
+                styles.moveRailFill,
+                { height: `${Math.max(6, moveRatio * 100)}%` },
+                moveReady ? styles.moveRailFillReady : null,
+              ]}
+            />
+          </View>
+          <Text style={[styles.moveArrow, moveReady ? styles.moveArrowReady : null]}>↑</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -205,6 +223,7 @@ export function GameBoard({
         <Text style={styles.legendText}>Claim = 1 mana connected · 2 isolated</Text>
         <Text style={styles.legendText}>Bright = deployable</Text>
         <Text style={styles.legendText}>Gold border = protected</Text>
+        <Text style={styles.legendText}>Side ↑ = free move charge</Text>
       </View>
     </View>
   );
@@ -240,12 +259,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 3,
     paddingVertical: 2,
+    position: 'relative',
   },
+  tokenMain: { width: '88%', alignItems: 'center', justifyContent: 'center', paddingRight: 7 },
   playerToken: { backgroundColor: '#174b6b', borderColor: '#6fb6df' },
   enemyToken: { backgroundColor: '#633042', borderColor: '#d48aa3' },
   tokenTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   icon: { fontSize: 16, lineHeight: 18 },
   moveTimer: { color: '#eef2f7', fontSize: 7, fontWeight: '900' },
+  moveRail: { position: 'absolute', right: 2, top: 3, bottom: 3, width: 11, alignItems: 'center', justifyContent: 'space-between', opacity: 0.68 },
+  moveRailReady: { opacity: 1 },
+  moveRailTrack: { flex: 1, width: 5, borderRadius: 99, backgroundColor: '#17202d', overflow: 'hidden', justifyContent: 'flex-end', borderWidth: 0.5, borderColor: '#526174' },
+  moveRailFill: { width: '100%', backgroundColor: '#76889d' },
+  moveRailFillReady: { backgroundColor: '#d9bf74' },
+  moveArrow: { color: '#718197', fontSize: 10, lineHeight: 11, fontWeight: '900', marginTop: 1 },
+  moveArrowReady: { color: '#ffe08a', textShadowColor: '#ffe08a', textShadowRadius: 5 },
   tokenName: { color: '#fff', fontSize: 8, fontWeight: '900', marginTop: -1 },
   hpTrack: { width: '86%', height: 4, backgroundColor: '#121722', borderRadius: 99, overflow: 'hidden', marginTop: 2 },
   hpFill: { height: '100%', backgroundColor: '#7bd389' },
