@@ -125,7 +125,7 @@ const GLOSSARY = [
   ['Territorio neutrale', 'Le due file centrali partono neutrali. Non puoi schierarci finché non vengono conquistate avanzando.'],
   ['Core', 'La base di ogni giocatore. Se il tuo Core arriva a 0 HP perdi immediatamente.'],
   ['Protected Row', 'La fila più vicina al Core non cambia proprietario anche se viene occupata da un invasore.'],
-  ['Emergency Line', 'Slot temporaneo dietro la fila protetta che può comparire quando una corsia viene completamente sfondata.'],
+  ['Respinta difensiva', 'Se un invasore occupa esattamente una casella della tua fila protetta, puoi schierare una tua unità in quella stessa casella: l’invasore viene spinto indietro di 1 casella se quella precedente è libera.'],
   ['Charge', 'Bonus applicato ad alcune unità dopo un avanzamento manuale riuscito.'],
   ['Splash', 'Parte del danno colpisce anche nemici nelle colonne adiacenti al bersaglio principale.'],
   ['Overtime', 'Se a 3:00 i Core hanno gli stessi HP, parte 1 minuto supplementare con rigenerazione mana doppia.'],
@@ -249,6 +249,13 @@ function SettingsScreen({
           </View>
           <View style={styles.ruleCard}>
             <Text style={styles.ruleNumber}>06</Text>
+            <View style={styles.ruleTextWrap}>
+              <Text style={styles.ruleTitle}>Respinta sulla fila protetta</Text>
+              <Text style={styles.ruleBody}>Se un nemico raggiunge l’ultima casella davanti al tuo Core, puoi giocare una tua unità direttamente su quella casella. L’invasore arretra di 1 casella, purché la casella precedente sia libera.</Text>
+            </View>
+          </View>
+          <View style={styles.ruleCard}>
+            <Text style={styles.ruleNumber}>07</Text>
             <View style={styles.ruleTextWrap}>
               <Text style={styles.ruleTitle}>Overtime</Text>
               <Text style={styles.ruleBody}>A parità di HP dopo 3 minuti parte 1 minuto con mana doppio. Poi decide HP, territorio e infine pareggio.</Text>
