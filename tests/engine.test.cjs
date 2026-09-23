@@ -40,6 +40,17 @@ function advance(state, ms, bot = false) {
   return current;
 }
 
+function chargeAndMove(state, side, entityId) {
+  const entity = state.entities.find((candidate) => candidate.id === entityId);
+  assert.ok(entity);
+  const definition = UNIT_BY_ID[entity.definitionId];
+  assert.ok(definition.advanceCooldownMs);
+  let charged = advance(state, definition.advanceCooldownMs, false);
+  const result = manualAdvanceEntity(charged, side, entityId);
+  assert.equal(result.ok, true, result.reason);
+  return result.state;
+}
+
 function withMana(state, side, mana = 10) {
   return {
     ...state,
@@ -225,16 +236,23 @@ test('ranged units can fire from behind the frontline', () => {
   assert.equal(entityAt(state, 2, 3).hp, UNIT_BY_ID.guardian.maxHp - UNIT_BY_ID.archer.attackDamage);
 });
 
-test('advancing units move forward and capture enemy territory', () => {
+test('filled movement charge waits for player input and then advances for free', () => {
   let state = createInitialState(12);
   state = deploy(state, 'player', 'legionnaire', 4, 4);
-  state = advance(state, 8000);
   const unit = state.entities.find((e) => e.definitionId === 'legionnaire');
-  assert.equal(unit.row, 3);
-  assert.equal(territoryOwnerAt(state, 3, 4), 'player');
+  const manaBefore = state.players.player.mana;
+
+  state = advance(state, UNIT_BY_ID.legionnaire.advanceCooldownMs);
+  assert.equal(state.entities.find((e) => e.id === unit.id).row, 4);
+
+  const result = manualAdvanceEntity(state, 'player', unit.id);
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.state.entities.find((e) => e.id === unit.id).row, 3);
+  assert.equal(result.state.players.player.mana, manaBefore + UNIT_BY_ID.legionnaire.advanceCooldownMs / 2000);
+  assert.equal(territoryOwnerAt(result.state, 3, 4), 'player');
 });
 
-test('advance is blocked by an occupied cell', () => {
+test('ready movement is blocked when the cell ahead is occupied', () => {
   let state = createInitialState(13);
   state = {
     ...state,
@@ -243,15 +261,19 @@ test('advance is blocked by an occupied cell', () => {
   state.territory[3][1] = 'enemy';
   state = deploy(state, 'player', 'legionnaire', 4, 1);
   state = deploy(state, 'enemy', 'barricade', 3, 1);
-  state = advance(state, 8000);
-  assert.equal(state.entities.find((e) => e.definitionId === 'legionnaire').row, 4);
+  const unit = state.entities.find((e) => e.definitionId === 'legionnaire');
+  state = advance(state, UNIT_BY_ID.legionnaire.advanceCooldownMs);
+  const result = manualAdvanceEntity(state, 'player', unit.id);
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /occupied/);
+  assert.equal(result.state.entities.find((e) => e.id === unit.id).row, 4);
 });
 
 test('captured territory persists after the capturing unit is removed', () => {
   let state = createInitialState(14);
   state = deploy(state, 'player', 'legionnaire', 4, 1);
-  state = advance(state, 8000);
   const id = state.entities.find((e) => e.definitionId === 'legionnaire').id;
+  state = chargeAndMove(state, 'player', id);
   state = { ...state, entities: state.entities.filter((e) => e.id !== id) };
   assert.equal(territoryOwnerAt(state, 3, 1), 'player');
 });
@@ -259,8 +281,8 @@ test('captured territory persists after the capturing unit is removed', () => {
 test('captured territory becomes a legal deployment cell for its new owner', () => {
   let state = createInitialState(15);
   state = deploy(state, 'player', 'legionnaire', 4, 4);
-  state = advance(state, 8000);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
+  state = chargeAndMove(state, 'player', invader.id);
   state = { ...state, entities: state.entities.filter((e) => e.id !== invader.id) };
   state = withMana(state, 'player');
   state = withCard(state, 'player', 'archer');
@@ -271,16 +293,22 @@ test('captured territory becomes a legal deployment cell for its new owner', () 
 test('protected final home row never changes territory owner', () => {
   let state = createInitialState(16);
   state = deploy(state, 'player', 'legionnaire', 4, 3);
-  state = advance(state, 32000);
   const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
-  assert.equal(invader.row, 0);
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+  assert.equal(state.entities.find((e) => e.id === invader.id).row, 0);
   assert.equal(territoryOwnerAt(state, 0, 3), 'enemy');
 });
 
 test('fully breaching a lane opens the defender emergency slot', () => {
   let state = createInitialState(17);
   state = deploy(state, 'player', 'legionnaire', 4, 0);
-  state = advance(state, 24000);
+  const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
   assert.equal(territoryOwnerAt(state, 2, 0), 'player');
   assert.equal(territoryOwnerAt(state, 1, 0), 'player');
   assert.equal(isEmergencyCellActive(state, 'enemy', 0), true);
@@ -290,7 +318,10 @@ test('fully breaching a lane opens the defender emergency slot', () => {
 test('defender can deploy melee into an active emergency slot', () => {
   let state = createInitialState(18);
   state = deploy(state, 'player', 'legionnaire', 4, 2);
-  state = advance(state, 24000);
+  const invader = state.entities.find((e) => e.definitionId === 'legionnaire');
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
+  state = chargeAndMove(state, 'player', invader.id);
   state = withMana(state, 'enemy');
   state = withCard(state, 'enemy', 'guardian');
   const result = placeEntity(state, 'enemy', 'guardian', -1, 2);
@@ -398,28 +429,40 @@ test('remaining clock reports regulation and overtime correctly', () => {
 });
 
 
-test('player can spend 2 mana to manually advance one unit by one free cell', () => {
+test('movement is free once its charge is ready', () => {
   let state = createInitialState(28);
   state = deploy(state, 'player', 'guardian', 4, 2);
-  state = withMana(state, 'player', 5);
   const unit = state.entities.find((entity) => entity.owner === 'player' && entity.definitionId === 'guardian');
+  state = advance(state, UNIT_BY_ID.guardian.advanceCooldownMs);
+  const manaBefore = state.players.player.mana;
   const result = manualAdvanceEntity(state, 'player', unit.id);
   assert.equal(result.ok, true);
-  assert.equal(result.state.players.player.mana, 3);
+  assert.equal(result.state.players.player.mana, manaBefore);
   assert.equal(result.state.entities.find((entity) => entity.id === unit.id).row, 3);
   assert.equal(territoryOwnerAt(result.state, 3, 2), 'player');
 });
 
-test('manual advance is blocked without spending mana when the cell ahead is occupied', () => {
-  let state = withCenterFrontlines(createInitialState(29));
-  state = deploy(state, 'player', 'guardian', 3, 1);
-  state = deploy(state, 'enemy', 'guardian', 2, 1);
-  state = withMana(state, 'player', 5);
+test('movement cannot be used before the charge is ready', () => {
+  let state = createInitialState(29);
+  state = deploy(state, 'player', 'guardian', 4, 1);
   const unit = state.entities.find((entity) => entity.owner === 'player' && entity.definitionId === 'guardian');
   const result = manualAdvanceEntity(state, 'player', unit.id);
   assert.equal(result.ok, false);
-  assert.equal(result.state.players.player.mana, 5);
-  assert.match(result.reason, /occupied/);
+  assert.match(result.reason, /still charging/);
+  assert.equal(result.state.entities.find((entity) => entity.id === unit.id).row, 4);
+});
+
+test('movement-focused units recharge faster than ranged support units', () => {
+  assert.ok(UNIT_BY_ID.knight.advanceCooldownMs < UNIT_BY_ID.archer.advanceCooldownMs);
+  assert.ok(UNIT_BY_ID.legionnaire.advanceCooldownMs < UNIT_BY_ID.pyromancer.advanceCooldownMs);
+  assert.ok(UNIT_BY_ID.ram.advanceCooldownMs < UNIT_BY_ID.crossbow.advanceCooldownMs);
+});
+
+test('structures remain static and have no movement charge', () => {
+  for (const id of ['tower', 'barricade', 'ballista']) {
+    assert.equal(UNIT_BY_ID[id].kind, 'structure');
+    assert.equal(UNIT_BY_ID[id].advanceCooldownMs, undefined);
+  }
 });
 
 test('connected empty territory in the player half costs 1 mana to claim', () => {
