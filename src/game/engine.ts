@@ -209,7 +209,6 @@ export function manualAdvanceEntity(
   state: GameState,
   side: Side,
   entityId: number,
-  manaCost = 2,
 ): PlacementResult {
   if (state.winner) return { ok: false, state, reason: 'The match is over.' };
 
@@ -218,12 +217,13 @@ export function manualAdvanceEntity(
   if (entity.owner !== side) return { ok: false, state, reason: 'You can only advance your own units.' };
 
   const definition = UNIT_BY_ID[entity.definitionId];
-  if (!definition || definition.kind !== 'unit') {
-    return { ok: false, state, reason: 'Structures cannot advance.' };
+  if (!definition || definition.kind !== 'unit' || !definition.advanceCooldownMs || entity.moveReadyAt === null) {
+    return { ok: false, state, reason: 'This piece is static and cannot advance.' };
   }
 
-  if (state.players[side].mana + 1e-9 < manaCost) {
-    return { ok: false, state, reason: `Manual advance costs ${manaCost} mana.` };
+  if (state.timeMs < entity.moveReadyAt) {
+    const seconds = Math.max(1, Math.ceil((entity.moveReadyAt - state.timeMs) / 1000));
+    return { ok: false, state, reason: `Movement is still charging: ${seconds}s remaining.` };
   }
 
   const nextRow = entity.row + directionFor(side);
@@ -247,9 +247,7 @@ export function manualAdvanceEntity(
       ...candidate,
       row: nextRow,
       chargePrimed: Boolean(definition.chargeBonus),
-      moveReadyAt: definition.advanceCooldownMs
-        ? state.timeMs + definition.advanceCooldownMs
-        : candidate.moveReadyAt,
+      moveReadyAt: state.timeMs + definition.advanceCooldownMs,
     };
   });
 
@@ -257,18 +255,11 @@ export function manualAdvanceEntity(
     ...state,
     territory,
     entities,
-    players: {
-      ...state.players,
-      [side]: {
-        ...state.players[side],
-        mana: Math.max(0, state.players[side].mana - manaCost),
-      },
-    },
   };
 
   next = appendEvent(
     next,
-    `${side === 'player' ? 'You' : 'Enemy'} spent ${manaCost} mana to advance ${definition.name} one cell.`,
+    `${side === 'player' ? 'You' : 'Enemy'} advanced ${definition.name} one cell for free.`,
   );
   return { ok: true, state: next };
 }
@@ -552,42 +543,6 @@ function canTerritoryFlipTo(state: GameState, owner: Side, row: number, col: num
   return true;
 }
 
-function applyMovement(state: GameState): GameState {
-  const entities = state.entities.map((entity) => ({ ...entity }));
-  const territory = state.territory.map((row) => [...row]);
-  const occupied = new Set(entities.filter((entity) => entity.hp > 0).map((entity) => `${entity.row},${entity.col}`));
-  const events: string[] = [];
-
-  for (const snapshot of [...entities].sort((a, b) => a.id - b.id)) {
-    const definition = UNIT_BY_ID[snapshot.definitionId];
-    if (!definition?.advanceCooldownMs || snapshot.moveReadyAt === null || snapshot.moveReadyAt > state.timeMs) continue;
-
-    const mutable = entities.find((entity) => entity.id === snapshot.id)!;
-    mutable.moveReadyAt = state.timeMs + definition.advanceCooldownMs;
-
-    const nextRow = snapshot.row + directionFor(snapshot.owner);
-    if (nextRow < 0 || nextRow >= BOARD_ROWS) continue;
-
-    const nextKey = `${nextRow},${snapshot.col}`;
-    if (occupied.has(nextKey)) continue;
-
-    occupied.delete(`${snapshot.row},${snapshot.col}`);
-    mutable.row = nextRow;
-    mutable.chargePrimed = Boolean(definition.chargeBonus);
-    occupied.add(nextKey);
-
-    const territoryState = { ...state, territory };
-    if (canTerritoryFlipTo(territoryState, snapshot.owner, nextRow, snapshot.col)) {
-      territory[nextRow][snapshot.col] = snapshot.owner;
-      events.push(`${snapshot.owner === 'player' ? 'You' : 'Enemy'} conquered lane ${snapshot.col + 1}, row ${nextRow + 1}.`);
-    }
-  }
-
-  let next: GameState = { ...state, entities, territory };
-  for (const event of events) next = appendEvent(next, event);
-  return next;
-}
-
 function regenerateMana(state: GameState, deltaMs: number, config: GameConfig): GameState {
   const rate = state.phase === 'overtime' ? config.overtimeManaPerSecond : config.manaPerSecond;
   const gained = rate * (deltaMs / 1000);
@@ -649,6 +604,22 @@ function runEnemyBot(state: GameState, config: GameConfig): GameState {
   if (state.timeMs < state.enemyNextActionAt || state.winner) return state;
 
   let next = { ...state, enemyNextActionAt: state.timeMs + config.enemyThinkEveryMs };
+
+  const readyMovers = next.entities
+    .filter((entity) => {
+      if (entity.owner !== 'enemy' || entity.hp <= 0) return false;
+      const definition = UNIT_BY_ID[entity.definitionId];
+      if (!definition || definition.kind !== 'unit' || !definition.advanceCooldownMs || entity.moveReadyAt === null) return false;
+      if (entity.moveReadyAt > next.timeMs) return false;
+      const nextRow = entity.row + directionFor('enemy');
+      return isNormalBoardCell(nextRow, entity.col) && !entityAt(next, nextRow, entity.col);
+    })
+    .sort((a, b) => b.row - a.row || a.id - b.id);
+
+  if (readyMovers.length > 0) {
+    return manualAdvanceEntity(next, 'enemy', readyMovers[0].id).state;
+  }
+
   const hand = next.players.enemy.cards.hand;
   const affordable = hand.filter((id) => UNIT_BY_ID[id] && UNIT_BY_ID[id].manaCost <= next.players.enemy.mana + 1e-9);
   const cells = allPotentialCellsForSide(next, 'enemy');
@@ -751,7 +722,6 @@ export function tickGame(
   };
 
   next = regenerateMana(next, clampedDelta, config);
-  next = applyMovement(next);
   next = applyAttacks(next);
   next = resolveCoreDestruction(next);
   next = resolveClock(next, previousTimeMs, config);
