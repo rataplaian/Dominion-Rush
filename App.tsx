@@ -63,7 +63,7 @@ function attackSpeedLabel(ms: number, type: string): string {
 function movementLabel(id: string): string {
   const unit = UNIT_BY_ID[id];
   if (!unit.advanceCooldownMs) return 'Static';
-  return `1 cell / ${unit.advanceCooldownMs / 1000}s`;
+  return `Free advance / ${unit.advanceCooldownMs / 1000}s`;
 }
 
 export default function App() {
@@ -205,18 +205,21 @@ export default function App() {
     if (started && !paused && !state.winner && entity.owner === 'player') {
       const definition = UNIT_BY_ID[entity.definitionId];
 
-      if (definition.kind === 'unit') {
-        const result = manualAdvanceEntity(state, 'player', entity.id);
-        if (result.ok) {
-          setState(result.state);
-          setInspectedEntityId(null);
-          setMessage(`${definition.name} advanced one cell for 2 mana.`);
+      if (definition.kind === 'unit' && definition.advanceCooldownMs && entity.moveReadyAt !== null) {
+        const ready = state.timeMs >= entity.moveReadyAt;
+        if (ready) {
+          const result = manualAdvanceEntity(state, 'player', entity.id);
+          if (result.ok) {
+            setState(result.state);
+            setInspectedEntityId(null);
+            setMessage(`${definition.name} advanced one cell for free. Movement is recharging.`);
+            return;
+          }
+
+          setInspectedEntityId(entity.id);
+          setMessage(result.reason ?? 'This unit cannot advance right now.');
           return;
         }
-
-        setInspectedEntityId(entity.id);
-        setMessage(result.reason ?? 'This unit cannot advance right now.');
-        return;
       }
     }
 
@@ -253,7 +256,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.eyebrow}>SINGLE PLAYER · PLAYTEST 1.2</Text>
+            <Text style={styles.eyebrow}>SINGLE PLAYER · PLAYTEST 1.3</Text>
             <Text style={styles.title}>Dominion Rush</Text>
             <Text style={styles.subtitle}>Real-time grid tactics · 5 × 6 battlefield</Text>
           </View>
@@ -473,7 +476,7 @@ export default function App() {
         </View>
 
         <Text style={styles.rules}>
-          Eight-card deck, four-card rotating hand. Tap one of your units to spend 2 mana and advance it one cell if the cell ahead is free. Empty cells in your half can be claimed directly: 1 mana when orthogonally adjacent to your territory, otherwise 2 mana. Tap enemy units to inspect their exact stats and effects.
+          Eight-card deck, four-card rotating hand. Almost every unit has a movement charge. When the side arrow is full and glowing, tap that unit to advance it one cell for free if the cell ahead is empty. Movement-focused units recharge much faster; ranged/support units recharge much more slowly. Structures and explicitly static pieces do not move. Empty cells in your half can still be claimed directly: 1 mana when adjacent to your territory, otherwise 2 mana.
         </Text>
       </ScrollView>
     </SafeAreaView>
