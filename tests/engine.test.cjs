@@ -240,15 +240,14 @@ test('filled movement charge waits for player input and then advances for free',
   let state = createInitialState(12);
   state = deploy(state, 'player', 'legionnaire', 4, 4);
   const unit = state.entities.find((e) => e.definitionId === 'legionnaire');
-  const manaBefore = state.players.player.mana;
-
   state = advance(state, UNIT_BY_ID.legionnaire.advanceCooldownMs);
   assert.equal(state.entities.find((e) => e.id === unit.id).row, 4);
+  const manaBeforeMove = state.players.player.mana;
 
   const result = manualAdvanceEntity(state, 'player', unit.id);
   assert.equal(result.ok, true, result.reason);
   assert.equal(result.state.entities.find((e) => e.id === unit.id).row, 3);
-  assert.equal(result.state.players.player.mana, manaBefore + UNIT_BY_ID.legionnaire.advanceCooldownMs / 2000);
+  assert.equal(result.state.players.player.mana, manaBeforeMove);
   assert.equal(territoryOwnerAt(result.state, 3, 4), 'player');
 });
 
@@ -465,29 +464,41 @@ test('structures remain static and have no movement charge', () => {
   }
 });
 
-test('connected empty territory in the player half costs 1 mana to claim', () => {
+test('connected empty non-center territory in the player half costs 1 mana to claim', () => {
   let state = createInitialState(30);
+  const territory = state.territory.map((row) => [...row]);
+  territory[4][0] = 'enemy';
+  state = { ...state, territory };
   state = withMana(state, 'player', 5);
-  const result = claimPlayerHalfCell(state, 3, 0);
+  const result = claimPlayerHalfCell(state, 4, 0);
   assert.equal(result.ok, true);
   assert.equal(result.state.players.player.mana, 4);
-  assert.equal(territoryOwnerAt(result.state, 3, 0), 'player');
+  assert.equal(territoryOwnerAt(result.state, 4, 0), 'player');
 });
 
-test('isolated empty territory in the player half costs 2 mana to claim', () => {
+test('isolated empty non-center territory in the player half costs 2 mana to claim', () => {
   let state = createInitialState(31);
   const territory = state.territory.map((row) => [...row]);
-  territory[3][2] = 'enemy';
   territory[4][2] = 'enemy';
-  territory[3][1] = 'enemy';
-  territory[3][3] = 'enemy';
+  territory[3][2] = 'enemy';
+  territory[5][2] = 'enemy';
+  territory[4][1] = 'enemy';
+  territory[4][3] = 'enemy';
   state = { ...state, territory };
   state = withMana(state, 'player', 5);
 
-  const result = claimPlayerHalfCell(state, 3, 2);
+  const result = claimPlayerHalfCell(state, 4, 2);
   assert.equal(result.ok, true);
   assert.equal(result.state.players.player.mana, 3);
-  assert.equal(territoryOwnerAt(result.state, 3, 2), 'player');
+  assert.equal(territoryOwnerAt(result.state, 4, 2), 'player');
+});
+
+test('center-row territory cannot be bought and must be conquered by movement', () => {
+  let state = withMana(createInitialState(311), 'player', 5);
+  const result = claimPlayerHalfCell(state, 3, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.state.players.player.mana, 5);
+  assert.match(result.reason, /must be conquered/);
 });
 
 test('territory cannot be bought directly in the enemy half', () => {
