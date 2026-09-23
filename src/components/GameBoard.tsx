@@ -114,7 +114,7 @@ function Cell({
     interactionEnabled &&
     !emergencySide &&
     !entity &&
-    row >= Math.floor(BOARD_ROWS / 2) &&
+    row > Math.floor(BOARD_ROWS / 2) &&
     normalOwner !== 'player',
   );
 
