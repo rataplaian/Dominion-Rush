@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ImageBackground,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -31,6 +32,26 @@ import {
 } from './src/game';
 
 const TICK_MS = 100;
+const MENU_BG = require('./assets/menu-bg.webp');
+const SETUP_BG = require('./assets/setup-bg.webp');
+
+function BackgroundShell({
+  source,
+  children,
+  dense = false,
+}: {
+  source: any;
+  children: React.ReactNode;
+  dense?: boolean;
+}) {
+  return (
+    <ImageBackground source={source} resizeMode="cover" style={styles.screenBackground}>
+      <View style={[styles.backgroundScrim, dense ? styles.backgroundScrimDense : null]}>
+        {children}
+      </View>
+    </ImageBackground>
+  );
+}
 
 type AppScreen = 'menu' | 'setup' | 'game' | 'settings';
 type SettingsSection = 'glossary' | 'info' | 'rules';
@@ -414,7 +435,9 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="light-content" />
-        <MainMenu onPlay={openSetup} onSettings={() => setScreen('settings')} />
+        <BackgroundShell source={MENU_BG}>
+          <MainMenu onPlay={openSetup} onSettings={() => setScreen('settings')} />
+        </BackgroundShell>
       </SafeAreaView>
     );
   }
@@ -423,11 +446,13 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="light-content" />
-        <SettingsScreen
-          section={settingsSection}
-          setSection={setSettingsSection}
-          onBack={() => setScreen('menu')}
-        />
+        <BackgroundShell source={SETUP_BG} dense>
+          <SettingsScreen
+            section={settingsSection}
+            setSection={setSettingsSection}
+            onBack={() => setScreen('menu')}
+          />
+        </BackgroundShell>
       </SafeAreaView>
     );
   }
@@ -436,7 +461,8 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="light-content" />
-        <ScrollView contentContainerStyle={styles.page}>
+        <BackgroundShell source={SETUP_BG} dense>
+          <ScrollView contentContainerStyle={styles.page}>
           <View style={styles.screenHeader}>
             <BackButton onPress={() => setScreen('menu')} />
             <View style={styles.screenHeaderText}>
@@ -495,7 +521,8 @@ export default function App() {
               <Text style={styles.startButtonHint}>La partita inizia solo dopo questo pulsante.</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </BackgroundShell>
       </SafeAreaView>
     );
   }
@@ -521,7 +548,8 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.gamePage}>
+      <BackgroundShell source={SETUP_BG} dense>
+        <ScrollView contentContainerStyle={styles.gamePage}>
         <View style={styles.gameHeader}>
           <TouchableOpacity accessibilityRole="button" onPress={leaveGame} style={styles.smallMenuButton}>
             <Text style={styles.smallMenuButtonText}>☰ MENU</Text>
@@ -641,13 +669,17 @@ export default function App() {
             <Text key={event.id} style={styles.logLine}>• {event.text}</Text>
           ))}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </BackgroundShell>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0d1119' },
+  screenBackground: { flex: 1 },
+  backgroundScrim: { flex: 1, backgroundColor: 'rgba(5, 10, 18, 0.28)' },
+  backgroundScrimDense: { backgroundColor: 'rgba(5, 10, 18, 0.54)' },
   page: { padding: 16, gap: 14, paddingBottom: 40 },
   gamePage: { padding: 12, gap: 12, paddingBottom: 32 },
 
@@ -657,8 +689,8 @@ const styles = StyleSheet.create({
   menuTitle: { color: '#f7f9fc', fontSize: 38, fontWeight: '900', letterSpacing: -1 },
   menuSubtitle: { color: '#8695aa', fontSize: 14, lineHeight: 21, maxWidth: 440 },
   menuButtons: { gap: 12 },
-  primaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#205d46', borderRadius: 16, padding: 16 },
-  secondaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#171e2a', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2c384b' },
+  primaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(31, 111, 76, 0.94)', borderRadius: 16, padding: 16 },
+  secondaryMenuButton: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(23, 30, 42, 0.90)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2c384b' },
   primaryMenuIcon: { fontSize: 27 },
   menuButtonTextWrap: { flex: 1 },
   primaryMenuText: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
@@ -694,7 +726,7 @@ const styles = StyleSheet.create({
   ruleTitle: { color: '#edf2f8', fontSize: 11, fontWeight: '900' },
   ruleBody: { color: '#8795a9', fontSize: 10, lineHeight: 15, marginTop: 3 },
 
-  setupPanel: { backgroundColor: '#121925', borderWidth: 1, borderColor: '#2a3548', borderRadius: 14, padding: 12, gap: 8 },
+  setupPanel: { backgroundColor: 'rgba(18, 25, 37, 0.92)', borderWidth: 1, borderColor: '#2a3548', borderRadius: 14, padding: 12, gap: 8 },
   setupTitle: { color: '#e7edf5', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   setupTitleSpacing: { marginTop: 5 },
   difficultyRow: { flexDirection: 'row', gap: 8 },
