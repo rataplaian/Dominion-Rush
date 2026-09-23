@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BOARD_COLS,
   BOARD_ROWS,
@@ -11,6 +11,8 @@ import {
   UNIT_BY_ID,
   entityAt,
 } from '../game';
+
+const ARENA_BG = require('../../assets/arena-bg.webp');
 
 interface GameBoardProps {
   state: GameState;
@@ -192,7 +194,14 @@ export function GameBoard({
         <Text style={styles.sideLabel}>DYNAMIC TERRITORY</Text>
         <Text style={styles.hint}>glowing ↑ = free move ready</Text>
       </View>
-      <View style={styles.board}>{normalRows}</View>
+      <ImageBackground
+        source={ARENA_BG}
+        resizeMode="cover"
+        style={styles.arenaArt}
+        imageStyle={styles.arenaImage}
+      >
+        <View style={styles.board}>{normalRows}</View>
+      </ImageBackground>
       <View style={styles.legendRow}>
         <Text style={styles.legendText}>Blue = yours</Text>
         <Text style={styles.legendText}>Red = enemy</Text>
@@ -209,28 +218,30 @@ export function GameBoard({
 
 const styles = StyleSheet.create({
   wrapper: { width: '100%', maxWidth: 560, alignSelf: 'center' },
-  board: { borderWidth: 2, borderColor: '#273248', borderRadius: 14, overflow: 'hidden' },
+  arenaArt: { width: '100%', aspectRatio: 941 / 1672, position: 'relative', overflow: 'hidden', borderRadius: 14 },
+  arenaImage: { borderRadius: 14 },
+  board: { position: 'absolute', left: '13.5%', right: '13.5%', top: '20.1%' },
   row: { flexDirection: 'row' },
   cell: {
     flex: 1,
-    aspectRatio: 1,
+    aspectRatio: 0.85,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 0.5,
-    borderColor: '#33415c',
+    borderColor: 'rgba(255,255,255,0.12)',
     minWidth: 0,
   },
-  enemyTerritory: { backgroundColor: '#201d2a' },
-  playerTerritory: { backgroundColor: '#13263a' },
-  neutralTerritory: { backgroundColor: '#242833' },
+  enemyTerritory: { backgroundColor: 'rgba(112, 32, 52, 0.10)' },
+  playerTerritory: { backgroundColor: 'rgba(31, 122, 178, 0.10)' },
+  neutralTerritory: { backgroundColor: 'rgba(82, 145, 220, 0.14)' },
   protectedHome: { borderColor: '#b99b4c', borderWidth: 1.5 },
-  repelReady: { borderColor: '#ffe08a', borderWidth: 2, backgroundColor: '#3a3522' },
+  repelReady: { borderColor: '#ffe08a', borderWidth: 2, backgroundColor: 'rgba(90, 69, 20, 0.28)' },
   entityCell: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   repelMark: { position: 'absolute', bottom: 1, color: '#ffe08a', fontSize: 6, fontWeight: '900', textShadowColor: '#000', textShadowRadius: 2 },
-  deployable: { backgroundColor: '#1d4260' },
+  deployable: { backgroundColor: 'rgba(56, 191, 255, 0.16)' },
   claimable: { borderColor: '#66d9e8', borderWidth: 2 },
   pressed: { opacity: 0.72 },
-  cellDot: { color: '#62708a', fontSize: 20 },
+  cellDot: { color: 'rgba(255,255,255,0.15)', fontSize: 16 },
   token: {
     width: '86%',
     height: '86%',
