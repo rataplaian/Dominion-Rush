@@ -12,7 +12,7 @@ import {
   entityAt,
 } from '../game';
 
-const ARENA_BG = require('../../assets/arena-bg.webp');
+const ARENA_BG = require('../../assets/arena-bg.jpg');
 
 interface GameBoardProps {
   state: GameState;
