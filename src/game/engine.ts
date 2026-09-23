@@ -122,10 +122,6 @@ export function isProtectedHomeRow(side: Side, row: number): boolean {
   return side === 'player' ? row === BOARD_ROWS - 1 : row === 0;
 }
 
-export function getEmergencyRow(side: Side): number {
-  return side === 'player' ? BOARD_ROWS : -1;
-}
-
 export function territoryOwnerAt(state: GameState, row: number, col: number): TerritoryOwner | null {
   if (!isNormalBoardCell(row, col)) return null;
   return state.territory[row][col];
@@ -145,16 +141,6 @@ export function getMatchRemainingMs(state: GameState, config: GameConfig = DEFAU
   return Math.max(0, config.regulationMs + config.overtimeMs - state.timeMs);
 }
 
-export function isEmergencyCellActive(state: GameState, side: Side, col: number): boolean {
-  if (col < 0 || col >= BOARD_COLS) return false;
-  const emergencyRow = getEmergencyRow(side);
-  if (entityAt(state, emergencyRow, col)?.owner === side) return true;
-
-  const attacker = enemyOf(side);
-  const conquerableRows = side === 'player' ? [3, 4] : [1, 2];
-  return conquerableRows.every((row) => state.territory[row][col] === attacker);
-}
-
 function appendEvent(state: GameState, text: string): GameState {
   const event = { id: state.nextEventId, timeMs: state.timeMs, text };
   return {
@@ -169,10 +155,6 @@ function finish(state: GameState, winner: Winner, text: string): GameState {
   return appendEvent({ ...state, winner, phase: 'finished' }, text);
 }
 
-function isEmergencyCoordinateFor(side: Side, row: number, col: number): boolean {
-  return row === getEmergencyRow(side) && col >= 0 && col < BOARD_COLS;
-}
-
 export function canDeployDefinitionAt(
   state: GameState,
   side: Side,
@@ -181,24 +163,35 @@ export function canDeployDefinitionAt(
   col: number,
 ): { ok: boolean; reason?: string } {
   if (state.winner) return { ok: false, reason: 'The match is over.' };
-
-  const emergency = isEmergencyCoordinateFor(side, row, col);
-  if (emergency) {
-    if (!isEmergencyCellActive(state, side, col)) {
-      return { ok: false, reason: 'That emergency slot is not active.' };
-    }
-    if (entityAt(state, row, col)) return { ok: false, reason: 'That emergency slot is occupied.' };
-    return { ok: true };
-  }
-
   if (!isNormalBoardCell(row, col)) return { ok: false, reason: 'Outside the board.' };
   if (territoryOwnerAt(state, row, col) !== side) {
     return { ok: false, reason: 'You can deploy only on territory you control. Neutral center cells must be conquered first.' };
   }
-  if (entityAt(state, row, col)) return { ok: false, reason: 'That cell is occupied.' };
+
+  const occupant = entityAt(state, row, col);
+  if (occupant) {
+    const isHomeRowRepel =
+      occupant.owner !== side &&
+      isProtectedHomeRow(side, row);
+
+    if (!isHomeRowRepel) {
+      return { ok: false, reason: 'That cell is occupied.' };
+    }
+
+    const retreatRow = row - directionFor(occupant.owner);
+    if (!isNormalBoardCell(retreatRow, col)) {
+      return { ok: false, reason: 'The invading unit cannot be pushed back.' };
+    }
+    if (entityAt(state, retreatRow, col)) {
+      return { ok: false, reason: 'The invading unit cannot be pushed back because the previous cell is occupied.' };
+    }
+
+    // Any unit may be deployed as a home-row reinforcement when it repels an invader.
+    return { ok: true };
+  }
 
   if (definition.deploymentRule === 'not_home_row' && isProtectedHomeRow(side, row)) {
-    return { ok: false, reason: 'This melee unit cannot be deployed on the row closest to your Core.' };
+    return { ok: false, reason: 'This melee unit cannot normally be deployed on the row closest to your Core.' };
   }
 
   return { ok: true };
@@ -358,6 +351,13 @@ export function placeEntity(
     return { ok: false, state, reason: 'Not enough mana.' };
   }
 
+  const occupant = entityAt(state, row, col);
+  const repelInvader = Boolean(
+    occupant &&
+    occupant.owner !== side &&
+    isProtectedHomeRow(side, row),
+  );
+
   const entity: Entity = {
     id: state.nextEntityId,
     definitionId,
@@ -370,6 +370,16 @@ export function placeEntity(
     chargePrimed: false,
   };
 
+  let entities = state.entities;
+  if (repelInvader && occupant) {
+    const retreatRow = row - directionFor(occupant.owner);
+    entities = state.entities.map((candidate) =>
+      candidate.id === occupant.id
+        ? { ...candidate, row: retreatRow }
+        : candidate,
+    );
+  }
+
   let next: GameState = {
     ...state,
     nextEntityId: state.nextEntityId + 1,
@@ -381,15 +391,18 @@ export function placeEntity(
         cards: rotateUsedCard(state.players[side].cards, definitionId),
       },
     },
-    entities: [...state.entities, entity],
+    entities: [...entities, entity],
   };
 
   next = appendEvent(
     next,
-    `${side === 'player' ? 'You' : 'Enemy'} deployed ${definition.name}${row === getEmergencyRow(side) ? ' from an emergency slot' : ''}.`,
+    repelInvader && occupant
+      ? `${side === 'player' ? 'You' : 'Enemy'} deployed ${definition.name} on the protected home row and pushed back ${UNIT_BY_ID[occupant.definitionId].name}.`
+      : `${side === 'player' ? 'You' : 'Enemy'} deployed ${definition.name}.`,
   );
   return { ok: true, state: next };
 }
+
 
 function isFrontmostFriendly(state: GameState, entity: Entity): boolean {
   const dir = directionFor(entity.owner);
@@ -574,16 +587,23 @@ function allPotentialCellsForSide(state: GameState, side: Side): Array<{ row: nu
 
   for (const row of normalRows) {
     for (let col = 0; col < BOARD_COLS; col += 1) {
-      if (state.territory[row][col] === side && !entityAt(state, row, col)) cells.push({ row, col });
+      if (state.territory[row][col] !== side) continue;
+
+      const occupant = entityAt(state, row, col);
+      if (!occupant) {
+        cells.push({ row, col });
+        continue;
+      }
+
+      if (occupant.owner !== side && isProtectedHomeRow(side, row)) {
+        const retreatRow = row - directionFor(occupant.owner);
+        if (isNormalBoardCell(retreatRow, col) && !entityAt(state, retreatRow, col)) {
+          cells.push({ row, col });
+        }
+      }
     }
   }
 
-  const emergencyRow = getEmergencyRow(side);
-  for (let col = 0; col < BOARD_COLS; col += 1) {
-    if (isEmergencyCellActive(state, side, col) && !entityAt(state, emergencyRow, col)) {
-      cells.push({ row: emergencyRow, col });
-    }
-  }
   return cells;
 }
 
